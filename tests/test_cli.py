@@ -73,4 +73,5 @@ def test_cli_init_manifest_and_triage(tmp_path) -> None:
 
     with connect(db_path) as conn:
         assert conn.execute("SELECT COUNT(*) FROM triage_reviews").fetchone()[0] == 1
-        assert conn.execute("SELECT status FROM papers").fetchone()[0] == "shortlisted"
+        assert conn.execute("SELECT status FROM papers").fetchone()[0] == "selected_for_review"
+        assert conn.execute("SELECT COUNT(*) FROM candidate_selections").fetchone()[0] == 1

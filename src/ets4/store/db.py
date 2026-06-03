@@ -5,7 +5,9 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 1
+from ets4.identity import canonicalize_url, normalize_title, title_similarity
+
+SCHEMA_VERSION = 2
 
 
 def connect(path: str | Path) -> sqlite3.Connection:
@@ -58,7 +60,8 @@ def init_db(conn: sqlite3.Connection) -> None:
             run_id TEXT REFERENCES run_manifests(run_id),
             fetched_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             status TEXT NOT NULL,
-            message TEXT
+            message TEXT,
+            candidate_count INTEGER NOT NULL DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS papers (
@@ -71,6 +74,8 @@ def init_db(conn: sqlite3.Connection) -> None:
             published_date TEXT,
             doi TEXT,
             arxiv_id TEXT,
+            normalized_title TEXT NOT NULL DEFAULT '',
+            duplicate_of_paper_id TEXT REFERENCES papers(id),
             status TEXT NOT NULL DEFAULT 'candidate',
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -78,6 +83,17 @@ def init_db(conn: sqlite3.Connection) -> None:
 
         CREATE UNIQUE INDEX IF NOT EXISTS idx_papers_canonical_url
         ON papers(canonical_url);
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_papers_doi
+        ON papers(doi)
+        WHERE doi IS NOT NULL;
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_papers_arxiv_id
+        ON papers(arxiv_id)
+        WHERE arxiv_id IS NOT NULL;
+
+        CREATE INDEX IF NOT EXISTS idx_papers_normalized_title
+        ON papers(normalized_title);
 
         CREATE TABLE IF NOT EXISTS triage_reviews (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -94,13 +110,35 @@ def init_db(conn: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(paper_id, run_id)
         );
+
+        CREATE TABLE IF NOT EXISTS candidate_selections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id TEXT NOT NULL REFERENCES run_manifests(run_id),
+            paper_id TEXT NOT NULL REFERENCES papers(id),
+            selection_stage TEXT NOT NULL,
+            rank INTEGER NOT NULL,
+            selection_score REAL NOT NULL,
+            forced INTEGER NOT NULL DEFAULT 0,
+            reason TEXT NOT NULL,
+            selected_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(run_id, paper_id, selection_stage),
+            UNIQUE(run_id, selection_stage, rank)
+        );
         """
     )
+    _ensure_column(conn, "papers", "normalized_title", "TEXT NOT NULL DEFAULT ''")
+    _ensure_column(conn, "papers", "duplicate_of_paper_id", "TEXT REFERENCES papers(id)")
     conn.execute(
         "INSERT OR REPLACE INTO schema_meta(key, value) VALUES (?, ?)",
         ("schema_version", str(SCHEMA_VERSION)),
     )
     conn.commit()
+
+
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, declaration: str) -> None:
+    columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in columns:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {declaration}")
 
 
 def insert_manifest(conn: sqlite3.Connection, manifest: Any) -> None:
@@ -178,25 +216,41 @@ def upsert_paper(
     published_date: str | None = None,
     doi: str | None = None,
     arxiv_id: str | None = None,
-) -> None:
+    duplicate_similarity_threshold: float = 0.96,
+) -> str:
+    canonical_url = canonicalize_url(canonical_url)
+    doi = doi.lower() if doi else None
+    arxiv_id = arxiv_id.strip() if arxiv_id else None
+    normalized_title = normalize_title(title)
+    existing_id = find_duplicate_paper_id(
+        conn,
+        title=title,
+        canonical_url=canonical_url,
+        doi=doi,
+        arxiv_id=arxiv_id,
+        similarity_threshold=duplicate_similarity_threshold,
+    )
+    resolved_id = existing_id or paper_id
+    duplicate_of = existing_id if existing_id and existing_id != paper_id else None
     conn.execute(
         """
         INSERT INTO papers (
             id, title, canonical_url, abstract, authors, source_id,
-            published_date, doi, arxiv_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(canonical_url) DO UPDATE SET
+            published_date, doi, arxiv_id, normalized_title, duplicate_of_paper_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
             title = excluded.title,
-            abstract = excluded.abstract,
-            authors = excluded.authors,
-            source_id = excluded.source_id,
-            published_date = excluded.published_date,
-            doi = excluded.doi,
-            arxiv_id = excluded.arxiv_id,
+            abstract = COALESCE(NULLIF(excluded.abstract, ''), papers.abstract),
+            authors = COALESCE(NULLIF(excluded.authors, ''), papers.authors),
+            source_id = COALESCE(excluded.source_id, papers.source_id),
+            published_date = COALESCE(excluded.published_date, papers.published_date),
+            doi = COALESCE(excluded.doi, papers.doi),
+            arxiv_id = COALESCE(excluded.arxiv_id, papers.arxiv_id),
+            normalized_title = COALESCE(NULLIF(excluded.normalized_title, ''), papers.normalized_title),
             updated_at = CURRENT_TIMESTAMP
         """,
         (
-            paper_id,
+            resolved_id,
             title,
             canonical_url,
             abstract,
@@ -205,5 +259,65 @@ def upsert_paper(
             published_date,
             doi,
             arxiv_id,
+            normalized_title,
+            duplicate_of,
         ),
+    )
+    return resolved_id
+
+
+def find_duplicate_paper_id(
+    conn: sqlite3.Connection,
+    *,
+    title: str,
+    canonical_url: str,
+    doi: str | None,
+    arxiv_id: str | None,
+    similarity_threshold: float,
+) -> str | None:
+    canonical_url = canonicalize_url(canonical_url)
+    checks = [
+        ("canonical_url", canonical_url),
+        ("doi", doi),
+        ("arxiv_id", arxiv_id),
+    ]
+    for column, value in checks:
+        if not value:
+            continue
+        row = conn.execute(f"SELECT id FROM papers WHERE {column} = ? LIMIT 1", (value,)).fetchone()
+        if row:
+            return str(row["id"])
+
+    normalized = normalize_title(title)
+    if not normalized:
+        return None
+    row = conn.execute(
+        "SELECT id FROM papers WHERE normalized_title = ? LIMIT 1",
+        (normalized,),
+    ).fetchone()
+    if row:
+        return str(row["id"])
+
+    for candidate in conn.execute("SELECT id, title FROM papers").fetchall():
+        if title_similarity(title, candidate["title"]) >= similarity_threshold:
+            return str(candidate["id"])
+    return None
+
+
+def insert_source_event(
+    conn: sqlite3.Connection,
+    *,
+    source_id: str,
+    run_id: str,
+    status: str,
+    message: str,
+    candidate_count: int = 0,
+) -> None:
+    _ensure_column(conn, "source_events", "candidate_count", "INTEGER NOT NULL DEFAULT 0")
+    conn.execute(
+        """
+        INSERT INTO source_events(source_id, run_id, status, message, candidate_count)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (source_id, run_id, status, message, candidate_count),
     )

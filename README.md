@@ -56,6 +56,7 @@ ets4 init-db
 ets4 manifest --issue-date 2026-06-08
 ets4 collect --dry-run --issue-date 2026-06-08
 ets4 triage --issue-date 2026-06-08
+ets4 select --issue-date 2026-06-08
 ```
 
 `manifest` prints a `run_id`. Later commands can continue the same auditable
@@ -64,6 +65,7 @@ run by passing `--run-id`:
 ```bash
 ets4 collect --dry-run --run-id run-example123
 ets4 triage --run-id run-example123
+ets4 select --run-id run-example123
 ```
 
 The default configuration is `config/feeds.example.toml`. Copy it to
@@ -71,3 +73,7 @@ The default configuration is `config/feeds.example.toml`. Copy it to
 
 The default model provider is `fake`, which is deterministic and suitable for
 offline development and tests.
+
+`triage` automatically applies the full-review paper budget after scoring
+candidates. `select` can be run separately to recompute full-review selection
+after configuration or human override changes.

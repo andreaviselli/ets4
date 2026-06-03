@@ -8,9 +8,11 @@ from .collect import collect_rss_source
 from .config import load_config
 from .manifest import create_manifest
 from .models import get_model_provider
+from .selection import select_full_review_candidates
 from .store.db import (
     connect,
     init_db,
+    insert_source_event,
     insert_manifest,
     run_exists,
     upsert_paper,
@@ -48,6 +50,13 @@ def build_parser() -> argparse.ArgumentParser:
     triage_parser = subparsers.add_parser("triage", help="Run fake-provider triage for candidates.")
     _add_manifest_args(triage_parser)
     triage_parser.set_defaults(func=cmd_triage)
+
+    select_parser = subparsers.add_parser(
+        "select",
+        help="Select full-review candidates under the issue paper budget.",
+    )
+    _add_manifest_args(select_parser)
+    select_parser.set_defaults(func=cmd_select)
 
     review_parser = subparsers.add_parser("review", help="Placeholder for full panel review.")
     review_parser.set_defaults(func=cmd_review)
@@ -102,12 +111,12 @@ def cmd_collect(args: argparse.Namespace) -> int:
             if args.dry_run:
                 continue
             if source.type != "rss":
-                conn.execute(
-                    """
-                    INSERT INTO source_events(source_id, run_id, status, message)
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    (source.id, run_id, "skipped", f"Unsupported source type: {source.type}"),
+                insert_source_event(
+                    conn,
+                    source_id=source.id,
+                    run_id=run_id,
+                    status="skipped",
+                    message=f"Unsupported source type: {source.type}",
                 )
                 continue
             try:
@@ -122,22 +131,25 @@ def cmd_collect(args: argparse.Namespace) -> int:
                         authors=candidate.authors,
                         source_id=candidate.source_id,
                         published_date=candidate.published_date,
+                        doi=candidate.doi,
+                        arxiv_id=candidate.arxiv_id,
                     )
                 collected += len(candidates)
-                conn.execute(
-                    """
-                    INSERT INTO source_events(source_id, run_id, status, message)
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    (source.id, run_id, "ok", f"Collected {len(candidates)} candidates"),
+                insert_source_event(
+                    conn,
+                    source_id=source.id,
+                    run_id=run_id,
+                    status="ok",
+                    message=f"Collected {len(candidates)} candidates",
+                    candidate_count=len(candidates),
                 )
             except Exception as exc:
-                conn.execute(
-                    """
-                    INSERT INTO source_events(source_id, run_id, status, message)
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    (source.id, run_id, "error", str(exc)),
+                insert_source_event(
+                    conn,
+                    source_id=source.id,
+                    run_id=run_id,
+                    status="error",
+                    message=str(exc),
                 )
         conn.commit()
     print(f"Run manifest: {run_id}")
@@ -192,9 +204,28 @@ def cmd_triage(args: argparse.Namespace) -> int:
                 (next_status, row["id"]),
             )
             reviewed += 1
+        selection = select_full_review_candidates(conn, run_id=run_id, config=config)
         conn.commit()
     print(f"Run manifest: {run_id}")
     print(f"Triaged candidates: {reviewed}")
+    print(
+        "Selected for full review: "
+        f"{selection.selected_count}/{selection.candidate_count} eligible candidates"
+    )
+    return 0
+
+
+def cmd_select(args: argparse.Namespace) -> int:
+    config = load_config(args.config)
+    with connect(args.db) as conn:
+        init_db(conn)
+        run_id = _ensure_run_manifest(conn, config, args)
+        selection = select_full_review_candidates(conn, run_id=run_id, config=config)
+    print(f"Run manifest: {run_id}")
+    print(
+        "Selected for full review: "
+        f"{selection.selected_count}/{selection.candidate_count} eligible candidates"
+    )
     return 0
 
 
