@@ -127,7 +127,7 @@ review. Automation may open a draft pull request, but it must not publish.
 ## Proposed Repository Layout
 
 ```text
-ets4.py                  # legacy prototype retained until migrated
+src/ets4/legacy.py       # legacy prototype retained until migrated
 config/
   feeds.example.toml     # source registry example
 data/                    # local SQLite/cache files, ignored except .gitkeep
@@ -141,7 +141,7 @@ pyproject.toml
 README.md
 ```
 
-Future code should move from `ets4.py` into a package layout:
+New implementation code should live in the package layout:
 
 ```text
 src/ets4/

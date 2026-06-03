@@ -30,7 +30,7 @@ Goal: migrate from a single script to a maintainable Python package.
   - `ets4 review`
   - `ets4 evaluate`
   - `ets4 export`
-- Move feed parsing and Markdown generation out of `ets4.py`.
+- Move feed parsing and Markdown generation out of `src/ets4/legacy.py`.
 - Add typed schemas for papers, evidence, reviews, decisions, and exports.
 - Add run manifests with issue date, source snapshot, model policy, cost budget,
   paper budget, human overrides, and allowed actions.
@@ -40,7 +40,7 @@ Exit criteria:
 
 - Current RSS-to-draft behavior can run through the CLI.
 - Tests pass without external network or model calls.
-- `ets4.py` is either removed or reduced to a compatibility wrapper.
+- `src/ets4/legacy.py` is either removed or reduced to a compatibility wrapper.
 
 ## Phase 2: Source Registry and Store
 

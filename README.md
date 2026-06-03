@@ -9,7 +9,7 @@ publishing repository.
 
 The repository currently contains:
 
-- `ets4.py`: the legacy prototype for RSS collection, LLM scoring, and Markdown export.
+- `src/ets4/legacy.py`: the legacy prototype for RSS collection, LLM scoring, and Markdown export.
 - `docs/`: the target architecture, roadmap, review workflow, and evaluation design.
 - `config/feeds.example.toml`: a starter source configuration.
 - `data/` and `exports/`: ignored runtime working directories.
@@ -46,3 +46,28 @@ OPENAI_API_KEY=...
 ```
 
 `.env` is ignored by Git.
+
+## Phase 1 CLI
+
+The new package skeleton exposes an `ets4` command after installation:
+
+```bash
+ets4 init-db
+ets4 manifest --issue-date 2026-06-08
+ets4 collect --dry-run --issue-date 2026-06-08
+ets4 triage --issue-date 2026-06-08
+```
+
+`manifest` prints a `run_id`. Later commands can continue the same auditable
+run by passing `--run-id`:
+
+```bash
+ets4 collect --dry-run --run-id run-example123
+ets4 triage --run-id run-example123
+```
+
+The default configuration is `config/feeds.example.toml`. Copy it to
+`config/feeds.toml` for local changes; the local config file is ignored by Git.
+
+The default model provider is `fake`, which is deterministic and suitable for
+offline development and tests.
