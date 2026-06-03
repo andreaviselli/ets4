@@ -37,13 +37,16 @@ draft page, but it must never silently publish or flip a page out of draft mode.
 3. **Evaluation gates model changes.** Prompts, models, retrieval logic, and
    reviewer rubrics should not change production behavior without benchmark
    comparison.
-4. **Provider abstraction.** LLM calls should sit behind a model interface so the
+4. **Panel simulation, not single-agent judgment.** Review should preserve
+   independent specialist reports, disagreement, editor decisions, and human
+   adjudication states.
+5. **Provider abstraction.** LLM calls should sit behind a model interface so the
    project can compare OpenAI, local, and other hosted models without rewriting
    workflows.
-5. **Human-in-the-loop by design.** The system should produce editor questions,
+6. **Human-in-the-loop by design.** The system should produce editor questions,
    confidence flags, and unresolved issues rather than pretending full
    automation is sufficient.
-6. **Deterministic core, probabilistic edge.** Fetching, parsing, deduplication,
+7. **Deterministic core, probabilistic edge.** Fetching, parsing, deduplication,
    storage, scoring schemas, and exports should be deterministic and tested.
    LLM outputs should be structured, validated, and versioned.
 
@@ -52,13 +55,16 @@ draft page, but it must never silently publish or flip a page out of draft mode.
 1. Collect candidate papers from configured sources.
 2. Normalize metadata and deduplicate by DOI, arXiv id, canonical URL, and fuzzy title.
 3. Store every candidate paper before model review.
-4. Run cheap triage on title, abstract, source, and metadata.
-5. Fetch full text only for plausible candidates.
-6. Extract evidence spans, figures, tables, datasets, metrics, baselines, and code links.
-7. Run specialist reviews against structured rubrics.
-8. Reconcile disagreement and produce an editorial decision.
-9. Generate public draft plus internal review notes.
-10. Export to a configured publishing repository with `draft: true`.
+4. Create a run manifest with issue date, model policy, cost budget, and allowed actions.
+5. Run desk screening on title, abstract, source, and metadata.
+6. Assign independent specialist reviewers for plausible candidates.
+7. Fetch full text only for papers assigned to full review.
+8. Build an evidence dossier with source locators, claim candidates, figures,
+   tables, datasets, metrics, baselines, and code links.
+9. Run independent specialist reviews against structured rubrics.
+10. Reconcile disagreement and produce a handling-editor decision memo.
+11. Generate public draft, claim ledger, and internal review notes.
+12. Export to a configured publishing repository with `draft: true`.
 
 ## Core Components
 
@@ -83,7 +89,8 @@ Every extracted evidence item should retain a source locator.
 ### Review Orchestrator
 
 The orchestrator runs role-specific reviewers and writes structured JSON. It
-should support retries, schema validation, model/version logging, temperature
+should support reviewer assignment, reviewer isolation before reconciliation,
+minority reports, retries, schema validation, model/version logging, temperature
 control, and deterministic replay where possible.
 
 ### Evaluation Harness
@@ -96,6 +103,12 @@ reviewer versions before deployment. See `docs/EVALUATION.md`.
 The exporter converts approved review records into Markdown plus a companion
 editorial-notes file. Export should be idempotent and should never overwrite
 manual edits unless explicitly requested.
+
+### Automation Runner
+
+The runner should support scheduled collection and draft generation. It must
+create a run manifest, enforce cost limits, write artifacts, and stop at human
+review. Automation may open a draft pull request, but it must not publish.
 
 ## Proposed Repository Layout
 

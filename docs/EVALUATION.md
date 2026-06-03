@@ -11,6 +11,7 @@ The system should be evaluated for:
 - category accuracy
 - evidence support
 - scoring calibration
+- reviewer disagreement handling
 - draft usefulness for human editing
 - regression stability across prompt/model changes
 
@@ -85,6 +86,13 @@ Scoring:
 - calibration by score bucket
 - inter-reviewer disagreement
 
+Panel behavior:
+
+- correct escalation of borderline papers
+- preservation of minority reports
+- rate of unresolved disagreements hidden from public drafts
+- handling-editor decision accuracy
+
 Draft usefulness:
 
 - human edit distance
@@ -105,6 +113,7 @@ Prompt/model changes should be rejected if they:
 - increase unsupported claims
 - reduce precision on hard negatives
 - lower evidence coverage
+- hide reviewer disagreement
 - improve style while weakening factuality
 
 ## Gold Labels

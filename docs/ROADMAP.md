@@ -32,6 +32,7 @@ Goal: migrate from a single script to a maintainable Python package.
   - `ets4 export`
 - Move feed parsing and Markdown generation out of `ets4.py`.
 - Add typed schemas for papers, evidence, reviews, decisions, and exports.
+- Add run manifests with issue date, source snapshot, model policy, and allowed actions.
 - Add unit tests for parsing, deduplication, schema validation, and Markdown rendering.
 
 Exit criteria:
@@ -77,15 +78,17 @@ Exit criteria:
 Goal: replace one-shot scoring with staged editorial judgment.
 
 - Implement the workflow in `docs/REVIEW_WORKFLOW.md`.
-- Add role-specific reviewers: relevance, methods, evidence, practitioner value, editor.
+- Add role-specific reviewers: relevance, methods, evidence, practitioner value, transferability, handling editor, copy editor.
+- Preserve independent reviewer reports before reconciliation.
 - Add strict JSON schemas for reviewer outputs.
 - Add reconciliation for disagreements.
-- Generate internal notes containing confidence, unresolved questions, and suggested human checks.
+- Generate decision memos, claim ledgers, internal notes, unresolved questions, and suggested human checks.
 
 Exit criteria:
 
 - A paper cannot enter the public draft without passing required gates.
 - Borderline and rejected papers retain explanations.
+- Majority and minority reviewer views are visible in internal notes.
 - The editor receives useful correction targets, not just polished prose.
 
 ## Phase 5: Evaluation Harness
@@ -128,6 +131,7 @@ Goal: make the tool dependable for monthly use.
 - Add model/provider configuration.
 - Add retries and backoff for source fetches and model calls.
 - Add archive/export bundles for each issue.
+- Add scheduled-run mode that generates drafts and review artifacts without publishing.
 
 Exit criteria:
 
