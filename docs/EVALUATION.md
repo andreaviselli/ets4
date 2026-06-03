@@ -11,6 +11,7 @@ The system should be evaluated for:
 - category accuracy
 - evidence support
 - scoring calibration
+- editorial budget selection quality
 - reviewer disagreement handling
 - draft usefulness for human editing
 - regression stability across prompt/model changes
@@ -66,6 +67,9 @@ Selection:
 - recall for known relevant papers
 - false-positive rate on hard negatives
 - false-negative rate for high-value papers
+- quality of top-k full-review selection
+- quality of top-k deep-dive selection
+- diversity across source, topic, method family, and target variable
 
 Categorization:
 
@@ -112,6 +116,7 @@ Prompt/model changes should be rejected if they:
 
 - increase unsupported claims
 - reduce precision on hard negatives
+- degrade top-k selection quality under the same paper budget
 - lower evidence coverage
 - hide reviewer disagreement
 - improve style while weakening factuality

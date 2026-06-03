@@ -13,6 +13,7 @@ Managing editor:
 
 - defines the issue scope
 - sets source coverage and cost limits
+- sets paper-count limits for triage, full review, short mentions, and deep dives
 - performs desk screening
 - assigns reviewers
 - makes the final publication decision
@@ -68,9 +69,11 @@ Inputs:
 - source registry version
 - model/provider configuration
 - cost budget
+- paper budget
 - source lookback window
 - publication target
 - automation mode: manual, scheduled-draft, or evaluation
+- human override policy
 
 Required output:
 
@@ -80,13 +83,18 @@ Required output:
 - `prompt_version`
 - `model_policy`
 - `cost_budget`
+- `paper_budget`
 - `allowed_actions`
+- `force_include`
+- `force_exclude`
 
 Gate rule:
 
 - Scheduled automation may collect, review, export drafts, and optionally open a
   pull request. It must not publish.
 - A run without a manifest cannot produce publication artifacts.
+- A run cannot exceed the configured paper or cost budget without explicit human
+  approval.
 
 ### Gate 1: Desk Screening
 
@@ -115,7 +123,70 @@ Gate rule:
 - Reject if relevance is only causal, descriptive, or purely theoretical.
 - Send borderline cases to full review rather than forcing a confident label.
 
-### Gate 2: Reviewer Assignment
+### Gate 2: Editorial Budget and Selection Policy
+
+Question: which papers deserve scarce review and drafting budget?
+
+Inputs:
+
+- desk-screening outputs
+- source priority
+- topic and source diversity
+- configured paper budget
+- `force_include` and `force_exclude` lists from the human editor
+
+Required output:
+
+- ranked candidates for full review
+- selected candidates for full review
+- ranked candidates for short mention
+- selected candidates for short mention
+- ranked candidates for deep-dive draft after full review
+- selected candidates for deep-dive draft
+- budget usage estimate
+- excluded high-scoring papers with reasons
+
+Recommended issue-level controls:
+
+```toml
+[issue]
+max_candidates_to_triage = 250
+max_papers_to_full_review = 20
+max_short_mentions = 8
+max_deep_dive_drafts = 3
+max_total_cost_usd = 10.00
+force_include = []
+force_exclude = []
+```
+
+Triage ranking should be cheap and conservative. Deep-dive ranking should happen
+only after full review and should not use a single raw score. A reasonable
+default heuristic is:
+
+```text
+deep_dive_rank =
+  0.30 * forecasting_relevance
++ 0.20 * methodological_novelty
++ 0.20 * empirical_credibility
++ 0.15 * practical_value
++ 0.10 * evidence_quality
++ 0.05 * issue_fit
+- penalties for weak evidence, duplication, unresolved disagreement, and budget risk
+```
+
+Gate rule:
+
+- Human `force_include` and `force_exclude` controls override automated ranking,
+  subject to source availability and hard safety constraints.
+- The human editor must be able to review and override selected full-review and
+  deep-dive candidates before final deep-dive draft generation.
+- A high score is not sufficient for a deep dive if evidence quality is weak,
+  reviewer disagreement is unresolved, or the paper duplicates another selected
+  item.
+- The system should preserve source/topic diversity so a run is not dominated by
+  one feed, method family, or asset class.
+
+### Gate 3: Reviewer Assignment
 
 Question: what expertise is needed to review this paper fairly?
 
@@ -134,7 +205,7 @@ Gate rule:
 - A non-economic paper labeled as transferable needs an explicit transferability
   reviewer.
 
-### Gate 3: Evidence Dossier
+### Gate 4: Evidence Dossier
 
 Question: what source-backed claims can be reviewed?
 
@@ -158,7 +229,7 @@ Gate rule:
 - Every public technical claim must later map to at least one evidence item or be
   marked as editorial interpretation.
 
-### Gate 4: Independent Specialist Reviews
+### Gate 5: Independent Specialist Reviews
 
 Run independent reviewers with narrow mandates.
 
@@ -204,7 +275,7 @@ Each reviewer must return structured JSON and cite evidence item ids. Reviewer
 reports should be generated independently before any synthesis step. The system
 should preserve minority reports rather than averaging them away.
 
-### Gate 5: Panel Reconciliation
+### Gate 6: Panel Reconciliation
 
 Question: do the reviewers agree enough to make an editorial decision?
 
@@ -226,7 +297,7 @@ Gate rule:
   should be marked `needs_editor` unless the handling editor resolves the issue
   with explicit reasoning.
 
-### Gate 6: Handling Editor Decision
+### Gate 7: Handling Editor Decision
 
 Question: what should be published, and with what caveats?
 
@@ -246,7 +317,7 @@ The handling editor must decide whether reviewer disagreement is acceptable,
 whether caveats are strong enough, and whether the paper deserves scarce editorial
 space in the issue.
 
-### Gate 7: Draft QA
+### Gate 8: Draft QA
 
 Question: is the generated draft faithful to the review record?
 

@@ -40,13 +40,16 @@ draft page, but it must never silently publish or flip a page out of draft mode.
 4. **Panel simulation, not single-agent judgment.** Review should preserve
    independent specialist reports, disagreement, editor decisions, and human
    adjudication states.
-5. **Provider abstraction.** LLM calls should sit behind a model interface so the
+5. **Budgeted editorial selection.** The human editor should set cost and paper
+   limits before expensive review steps, and should be able to override selected
+   papers before deep-dive draft generation.
+6. **Provider abstraction.** LLM calls should sit behind a model interface so the
    project can compare OpenAI, local, and other hosted models without rewriting
    workflows.
-6. **Human-in-the-loop by design.** The system should produce editor questions,
+7. **Human-in-the-loop by design.** The system should produce editor questions,
    confidence flags, and unresolved issues rather than pretending full
    automation is sufficient.
-7. **Deterministic core, probabilistic edge.** Fetching, parsing, deduplication,
+8. **Deterministic core, probabilistic edge.** Fetching, parsing, deduplication,
    storage, scoring schemas, and exports should be deterministic and tested.
    LLM outputs should be structured, validated, and versioned.
 
@@ -55,16 +58,20 @@ draft page, but it must never silently publish or flip a page out of draft mode.
 1. Collect candidate papers from configured sources.
 2. Normalize metadata and deduplicate by DOI, arXiv id, canonical URL, and fuzzy title.
 3. Store every candidate paper before model review.
-4. Create a run manifest with issue date, model policy, cost budget, and allowed actions.
+4. Create a run manifest with issue date, model policy, cost budget, paper
+   budget, override policy, and allowed actions.
 5. Run desk screening on title, abstract, source, and metadata.
-6. Assign independent specialist reviewers for plausible candidates.
-7. Fetch full text only for papers assigned to full review.
-8. Build an evidence dossier with source locators, claim candidates, figures,
+6. Rank candidates under the editorial budget and apply human overrides.
+7. Assign independent specialist reviewers for selected candidates.
+8. Fetch full text only for papers assigned to full review.
+9. Build an evidence dossier with source locators, claim candidates, figures,
    tables, datasets, metrics, baselines, and code links.
-9. Run independent specialist reviews against structured rubrics.
-10. Reconcile disagreement and produce a handling-editor decision memo.
-11. Generate public draft, claim ledger, and internal review notes.
-12. Export to a configured publishing repository with `draft: true`.
+10. Run independent specialist reviews against structured rubrics.
+11. Rank fully reviewed papers for short mentions and deep dives.
+12. Pause for optional human override before final deep-dive draft generation.
+13. Reconcile disagreement and produce a handling-editor decision memo.
+14. Generate public draft, claim ledger, and internal review notes.
+15. Export to a configured publishing repository with `draft: true`.
 
 ## Core Components
 
@@ -92,6 +99,13 @@ The orchestrator runs role-specific reviewers and writes structured JSON. It
 should support reviewer assignment, reviewer isolation before reconciliation,
 minority reports, retries, schema validation, model/version logging, temperature
 control, and deterministic replay where possible.
+
+### Editorial Budget Manager
+
+The budget manager enforces the issue's cost and paper-count limits. It ranks
+papers for full review, short mention, and deep-dive draft generation, applies
+human include/exclude overrides, estimates expected cost before expensive steps,
+and stops the run when a hard budget would be exceeded.
 
 ### Evaluation Harness
 

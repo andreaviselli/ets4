@@ -32,7 +32,8 @@ Goal: migrate from a single script to a maintainable Python package.
   - `ets4 export`
 - Move feed parsing and Markdown generation out of `ets4.py`.
 - Add typed schemas for papers, evidence, reviews, decisions, and exports.
-- Add run manifests with issue date, source snapshot, model policy, and allowed actions.
+- Add run manifests with issue date, source snapshot, model policy, cost budget,
+  paper budget, human overrides, and allowed actions.
 - Add unit tests for parsing, deduplication, schema validation, and Markdown rendering.
 
 Exit criteria:
@@ -50,6 +51,8 @@ Goal: make collection reproducible and auditable.
 - Store source fetches, paper metadata, canonical identifiers, and raw abstracts.
 - Deduplicate by DOI, arXiv id, canonical URL, and normalized title.
 - Track paper lifecycle states: `candidate`, `triaged`, `rejected`, `shortlisted`, `reviewed`, `drafted`, `published`.
+- Implement issue-level paper limits for triage, full review, short mention, and deep dive.
+- Implement `force_include` and `force_exclude` controls.
 
 Exit criteria:
 
@@ -80,6 +83,7 @@ Goal: replace one-shot scoring with staged editorial judgment.
 - Implement the workflow in `docs/REVIEW_WORKFLOW.md`.
 - Add role-specific reviewers: relevance, methods, evidence, practitioner value, transferability, handling editor, copy editor.
 - Preserve independent reviewer reports before reconciliation.
+- Add editorial budget ranking for full review, short mentions, and deep-dive drafts.
 - Add strict JSON schemas for reviewer outputs.
 - Add reconciliation for disagreements.
 - Generate decision memos, claim ledgers, internal notes, unresolved questions, and suggested human checks.
@@ -89,6 +93,7 @@ Exit criteria:
 - A paper cannot enter the public draft without passing required gates.
 - Borderline and rejected papers retain explanations.
 - Majority and minority reviewer views are visible in internal notes.
+- The human editor can override deep-dive selections before final draft generation.
 - The editor receives useful correction targets, not just polished prose.
 
 ## Phase 5: Evaluation Harness
