@@ -1,40 +1,136 @@
 # ETS4 Roadmap
 
-## Milestone 1: Repository Baseline
+This roadmap intentionally prioritizes review quality and evaluation over a
+larger interface. A dashboard or web app should wait until the editorial core is
+measurably reliable.
 
-- Initialize this directory as an independent Git repository.
-- Add packaging metadata and dependency declarations.
-- Keep secrets out of version control.
-- Document the intended relationship with the website repository.
+## Phase 0: Repository Reset
 
-## Milestone 2: Pipeline Stabilization
+Goal: remove prototype clutter and define the target system.
 
-- Move notebook logic into importable Python modules.
-- Preserve the current `get_ets4` interface while introducing a CLI.
-- Add structured configuration for feeds, models, thresholds, and output paths.
-- Add smoke tests for feed parsing, JSON validation, deduplication, and Markdown export.
+- Keep only the active prototype, project metadata, and design docs.
+- Remove deprecated notebooks and generated outputs from version control.
+- Add `config/`, `data/`, and `exports/` as the working structure.
+- Document the review workflow and evaluation standard.
 
-## Milestone 3: Editorial Store
+Exit criteria:
 
-- Add a SQLite database for papers, sources, review runs, and publication state.
-- Store model outputs as structured JSON.
-- Track paper status across issues: candidate, shortlisted, rejected, deep-dive, drafted, published.
+- Repository contains no local machine paths.
+- Runtime/generated files are ignored.
+- Architecture, review workflow, and evaluation contracts are explicit.
 
-## Milestone 4: Review Workflow
+## Phase 1: Package and CLI
 
-- Implement staged review: triage, full-text review, methodological critique, practitioner relevance, final editor pass.
-- Add disagreement handling and confidence flags.
-- Produce internal review notes alongside public drafts.
+Goal: migrate from a single script to a maintainable Python package.
 
-## Milestone 5: Evaluation
+- Create `src/ets4/` package.
+- Add CLI commands:
+  - `ets4 collect`
+  - `ets4 triage`
+  - `ets4 review`
+  - `ets4 evaluate`
+  - `ets4 export`
+- Move feed parsing and Markdown generation out of `ets4.py`.
+- Add typed schemas for papers, evidence, reviews, decisions, and exports.
+- Add unit tests for parsing, deduplication, schema validation, and Markdown rendering.
 
-- Build a labeled validation set from past candidate papers.
-- Measure relevance precision/recall and scoring consistency.
-- Compare prompts and models before adopting changes.
-- Track known failure modes.
+Exit criteria:
 
-## Milestone 6: Website Draft Export
+- Current RSS-to-draft behavior can run through the CLI.
+- Tests pass without external network or model calls.
+- `ets4.py` is either removed or reduced to a compatibility wrapper.
 
-- Generate Markdown matching the publishing site's front matter and page conventions.
-- Export draft pages to a configured website repository.
-- Keep exported pages in draft mode until human approval.
+## Phase 2: Source Registry and Store
+
+Goal: make collection reproducible and auditable.
+
+- Implement `config/feeds.toml` loading.
+- Add SQLite migrations or explicit schema initialization.
+- Store source fetches, paper metadata, canonical identifiers, and raw abstracts.
+- Deduplicate by DOI, arXiv id, canonical URL, and normalized title.
+- Track paper lifecycle states: `candidate`, `triaged`, `rejected`, `shortlisted`, `reviewed`, `drafted`, `published`.
+
+Exit criteria:
+
+- Re-running collection does not create duplicate papers.
+- Every paper can be traced to a source event.
+- Review state survives across runs.
+
+## Phase 3: Evidence Extraction
+
+Goal: stop asking the model to review papers from weak context.
+
+- Fetch full text for shortlisted candidates.
+- Preserve PDF page numbers and source locators.
+- Extract abstracts, methods, datasets, tables, figures, metrics, baselines, code links, and limitations.
+- Store evidence items separately from model prose.
+- Add failure handling for paywalls, broken PDFs, and malformed feeds.
+
+Exit criteria:
+
+- Every full review cites evidence items.
+- Missing full text produces an explicit review limitation.
+- Draft summaries avoid claims without supporting evidence.
+
+## Phase 4: Review Workflow
+
+Goal: replace one-shot scoring with staged editorial judgment.
+
+- Implement the workflow in `docs/REVIEW_WORKFLOW.md`.
+- Add role-specific reviewers: relevance, methods, evidence, practitioner value, editor.
+- Add strict JSON schemas for reviewer outputs.
+- Add reconciliation for disagreements.
+- Generate internal notes containing confidence, unresolved questions, and suggested human checks.
+
+Exit criteria:
+
+- A paper cannot enter the public draft without passing required gates.
+- Borderline and rejected papers retain explanations.
+- The editor receives useful correction targets, not just polished prose.
+
+## Phase 5: Evaluation Harness
+
+Goal: make quality measurable before optimizing prompts or models.
+
+- Implement the benchmark described in `docs/EVALUATION.md`.
+- Create labeled paper sets for relevance, category, evidence support, and publication readiness.
+- Add regression tests for prompts, models, and retrieval changes.
+- Track false positives, false negatives, unsupported claims, and calibration drift.
+
+Exit criteria:
+
+- Any review-system change can be compared against the current baseline.
+- Prompt/model changes require benchmark results.
+- Known failure modes are tracked and tested.
+
+## Phase 6: Draft Export
+
+Goal: produce publication-ready drafts without bypassing human review.
+
+- Export Markdown with site-compatible front matter.
+- Export companion internal notes.
+- Keep `draft: true` by default.
+- Make exports idempotent.
+- Refuse to overwrite manually edited drafts unless explicitly requested.
+
+Exit criteria:
+
+- A complete issue can be exported to `exports/`.
+- A configured publishing repository can receive draft files.
+- Publication remains a manual approval step.
+
+## Phase 7: Operational Hardening
+
+Goal: make the tool dependable for monthly use.
+
+- Add run logs and review manifests.
+- Add cost and token accounting.
+- Add model/provider configuration.
+- Add retries and backoff for source fetches and model calls.
+- Add archive/export bundles for each issue.
+
+Exit criteria:
+
+- A monthly issue can be reproduced from stored data.
+- Review artifacts are auditable.
+- Failures are explicit and recoverable.

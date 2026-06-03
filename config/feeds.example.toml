@@ -1,0 +1,22 @@
+# Example source registry. Copy this file to config/feeds.toml for local use.
+
+[[feeds]]
+name = "NEP Forecasting"
+type = "rss"
+url = "https://nep.repec.org/rss/nep-for.rss.xml"
+domain = "economics"
+priority = "high"
+
+[[feeds]]
+name = "arXiv Quantitative Finance Statistical Methods"
+type = "rss"
+url = "http://export.arxiv.org/rss/q-fin.ST"
+domain = "finance"
+priority = "medium"
+
+[[feeds]]
+name = "Federal Reserve Working Papers"
+type = "rss"
+url = "https://www.federalreserve.gov/feeds/working_papers.xml"
+domain = "central-bank-research"
+priority = "high"

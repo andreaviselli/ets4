@@ -1,31 +1,35 @@
 # ETS4
 
 ETS4 is an editorial review system for economic time-series forecasting research.
-Its immediate role is to collect candidate papers, review them with LLM-assisted
-editorial workflows, and export draft pages for a separate publishing repository.
+Its role is to collect candidate papers, run evidence-grounded editorial review,
+evaluate reviewer quality, and export human-reviewable draft pages for a separate
+publishing repository.
 
 ## Current State
 
-The project currently contains:
+The repository currently contains:
 
-- `ets4.py`: the active newsletter pipeline for RSS collection, LLM scoring, and Markdown export.
-- `get_ets4.ipynb`: a notebook runner for the active pipeline.
-- `deepdive_v3.ipynb`: a notebook workflow for full-paper deep dives.
-- `deepdives/`: generated examples of deep-dive output.
-- `old-deprecated/`: earlier experiments retained for reference.
+- `ets4.py`: the legacy prototype for RSS collection, LLM scoring, and Markdown export.
+- `docs/`: the target architecture, roadmap, review workflow, and evaluation design.
+- `config/feeds.example.toml`: a starter source configuration.
+- `data/` and `exports/`: ignored runtime working directories.
 
 ## Repository Direction
 
-The next development target is a reproducible, reviewable editorial system:
+The target is a reproducible editorial system with these properties:
 
-1. Structured paper collection from RSS and research sources.
-2. Persistent paper/review storage.
-3. Multi-stage editorial review.
-4. Evaluation against labeled examples.
-5. Draft export into the website repository with `draft: true`.
-6. Human review before publication.
+1. Papers and model outputs are stored as auditable structured records.
+2. Reviews are grounded in cited source evidence, not free-form model impressions.
+3. Editorial decisions pass through explicit gates before publication.
+4. Prompt/model changes require evaluation against a labeled benchmark.
+5. Draft pages are exported in review mode and remain unpublished until approved.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/ROADMAP.md](docs/ROADMAP.md).
+See:
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- [docs/REVIEW_WORKFLOW.md](docs/REVIEW_WORKFLOW.md)
+- [docs/EVALUATION.md](docs/EVALUATION.md)
+- [docs/ROADMAP.md](docs/ROADMAP.md)
 
 ## Local Setup
 

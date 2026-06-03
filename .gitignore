@@ -22,8 +22,16 @@ build/
 # macOS
 .DS_Store
 
-# Generated editorial outputs
-newsletters/*
-!newsletters/.gitkeep
-deepdives/*.html
-deepdives/*.pdf
+# Runtime state and generated editorial outputs
+config/feeds.toml
+data/*
+!data/.gitkeep
+exports/*
+!exports/.gitkeep
+*.sqlite
+*.sqlite3
+
+# Removed local legacy/generated directories
+deepdives/
+newsletters/
+old-deprecated/
