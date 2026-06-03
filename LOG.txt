@@ -1,0 +1,27 @@
+--- ets4 News ---
+
+A newsletter for economic news (financial markets, energy, macroeconomics) and think tank policy 
+briefs relevant for forecasting, to be distilled in pills, focused on real time policy and decision 
+making.
+
+More RSS Feeds are available among "Policy & Economic Analysis Think Tanks" in
+the deprecated pipeline notebooks.
+
+The aim of this newsletter is to collect news and latest forecasts and projections, either in a
+qualitative or quantitative form, and to produce a comprehensive overview and summary of the key 
+developments useful from the standpoints of a policymaker and planner. To finalize this summary
+and provide qualitative predictions and assessments of economic aggregates, energy variables, or 
+financial prices, we rely on a large language model (LLM) for reasoning.
+
+Ancestor of 'ets4.py' are the pipelines files in the folder of deprecated scripts.
+
+--- Related, but another project ---
+
+• Latest & impactful news about projections and surveys from PS Syndicate, FT, professional
+and academic working papers (e.g., banks, institutions, think tanks); this will be the starting
+foint for the OpenForecasting project.
+• Same as above, but for the world energy market.
+
+
+--- Monthly Issue ---
+• Improve the prompt, as we have to get a quick example from the paper with the main motivation or example. This may catch the attention of people very quickly, and make the newsletter much more different than others.
