@@ -7,7 +7,7 @@ from typing import Any
 
 from ets4.identity import canonicalize_url, normalize_title, title_similarity
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def connect(path: str | Path) -> sqlite3.Connection:
@@ -123,6 +123,56 @@ def init_db(conn: sqlite3.Connection) -> None:
             selected_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(run_id, paper_id, selection_stage),
             UNIQUE(run_id, selection_stage, rank)
+        );
+
+        CREATE TABLE IF NOT EXISTS documents (
+            id TEXT PRIMARY KEY,
+            paper_id TEXT NOT NULL REFERENCES papers(id),
+            run_id TEXT REFERENCES run_manifests(run_id),
+            source_uri TEXT NOT NULL,
+            content_type TEXT NOT NULL,
+            content_sha256 TEXT NOT NULL,
+            page_count INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL,
+            error_message TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_documents_content_hash
+        ON documents(paper_id, content_sha256);
+
+        CREATE TABLE IF NOT EXISTS document_pages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            document_id TEXT NOT NULL REFERENCES documents(id),
+            page_number INTEGER NOT NULL,
+            text TEXT NOT NULL,
+            char_count INTEGER NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(document_id, page_number)
+        );
+
+        CREATE TABLE IF NOT EXISTS evidence_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            paper_id TEXT NOT NULL REFERENCES papers(id),
+            document_id TEXT NOT NULL REFERENCES documents(id),
+            page_number INTEGER NOT NULL,
+            kind TEXT NOT NULL,
+            label TEXT NOT NULL,
+            text TEXT NOT NULL,
+            source_locator TEXT NOT NULL,
+            confidence REAL NOT NULL DEFAULT 1.0,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS document_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            paper_id TEXT REFERENCES papers(id),
+            document_id TEXT REFERENCES documents(id),
+            run_id TEXT REFERENCES run_manifests(run_id),
+            status TEXT NOT NULL,
+            message TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
         """
     )
@@ -320,4 +370,106 @@ def insert_source_event(
         VALUES (?, ?, ?, ?, ?)
         """,
         (source_id, run_id, status, message, candidate_count),
+    )
+
+
+def insert_document(
+    conn: sqlite3.Connection,
+    *,
+    document_id: str,
+    paper_id: str,
+    run_id: str | None,
+    source_uri: str,
+    content_type: str,
+    content_sha256: str,
+    page_count: int,
+    status: str,
+    error_message: str | None = None,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO documents (
+            id, paper_id, run_id, source_uri, content_type, content_sha256,
+            page_count, status, error_message
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            run_id = excluded.run_id,
+            source_uri = excluded.source_uri,
+            content_type = excluded.content_type,
+            content_sha256 = excluded.content_sha256,
+            page_count = excluded.page_count,
+            status = excluded.status,
+            error_message = excluded.error_message,
+            updated_at = CURRENT_TIMESTAMP
+        """,
+        (
+            document_id,
+            paper_id,
+            run_id,
+            source_uri,
+            content_type,
+            content_sha256,
+            page_count,
+            status,
+            error_message,
+        ),
+    )
+
+
+def insert_document_page(
+    conn: sqlite3.Connection,
+    *,
+    document_id: str,
+    page_number: int,
+    text: str,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO document_pages (document_id, page_number, text, char_count)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(document_id, page_number) DO UPDATE SET
+            text = excluded.text,
+            char_count = excluded.char_count
+        """,
+        (document_id, page_number, text, len(text)),
+    )
+
+
+def insert_evidence_item(
+    conn: sqlite3.Connection,
+    *,
+    paper_id: str,
+    document_id: str,
+    page_number: int,
+    kind: str,
+    label: str,
+    text: str,
+    source_locator: str,
+    confidence: float = 1.0,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO evidence_items (
+            paper_id, document_id, page_number, kind, label, text, source_locator, confidence
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (paper_id, document_id, page_number, kind, label, text, source_locator, confidence),
+    )
+
+
+def insert_document_event(
+    conn: sqlite3.Connection,
+    *,
+    paper_id: str | None,
+    document_id: str | None,
+    run_id: str | None,
+    status: str,
+    message: str,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO document_events (paper_id, document_id, run_id, status, message)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (paper_id, document_id, run_id, status, message),
     )

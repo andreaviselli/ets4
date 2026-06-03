@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .collect import collect_rss_source
 from .config import load_config
+from .documents import process_document_for_paper
 from .manifest import create_manifest
 from .models import get_model_provider
 from .selection import select_full_review_candidates
@@ -57,6 +58,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_manifest_args(select_parser)
     select_parser.set_defaults(func=cmd_select)
+
+    extract_parser = subparsers.add_parser(
+        "extract",
+        help="Retrieve documents and extract page text/evidence items.",
+    )
+    _add_manifest_args(extract_parser)
+    extract_parser.add_argument("--paper-id", help="Paper id to extract evidence for.")
+    extract_parser.add_argument("--source", help="Document URL or local path.")
+    extract_parser.set_defaults(func=cmd_extract)
 
     review_parser = subparsers.add_parser("review", help="Placeholder for full panel review.")
     review_parser.set_defaults(func=cmd_review)
@@ -229,6 +239,34 @@ def cmd_select(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_extract(args: argparse.Namespace) -> int:
+    config = load_config(args.config)
+    processed = 0
+    errors = 0
+    with connect(args.db) as conn:
+        init_db(conn)
+        run_id = _ensure_run_manifest(conn, config, args)
+        targets = _extract_targets(conn, run_id=run_id, paper_id=args.paper_id, source=args.source)
+        for paper_id, source_uri in targets:
+            result = process_document_for_paper(
+                conn,
+                paper_id=paper_id,
+                source_uri=source_uri,
+                run_id=run_id,
+            )
+            processed += 1
+            if result.status != "ok":
+                errors += 1
+            print(
+                f"{paper_id}: {result.status}; pages={result.page_count}; "
+                f"evidence={result.evidence_count}; source={source_uri}"
+            )
+    print(f"Run manifest: {run_id}")
+    print(f"Processed documents: {processed}")
+    print(f"Document errors: {errors}")
+    return 1 if errors else 0
+
+
 def cmd_review(args: argparse.Namespace) -> int:
     print("Full panel review is not implemented yet. Next phase: evidence dossier + reviewers.")
     return 0
@@ -257,6 +295,31 @@ def _ensure_run_manifest(conn, config, args) -> str:
     )
     insert_manifest(conn, manifest)
     return manifest.run_id
+
+
+def _extract_targets(
+    conn,
+    *,
+    run_id: str,
+    paper_id: str | None,
+    source: str | None,
+) -> list[tuple[str, str]]:
+    if paper_id and source:
+        return [(paper_id, source)]
+    if paper_id or source:
+        raise SystemExit("--paper-id and --source must be provided together")
+    rows = conn.execute(
+        """
+        SELECT papers.id, papers.canonical_url
+        FROM candidate_selections
+        JOIN papers ON papers.id = candidate_selections.paper_id
+        WHERE candidate_selections.run_id = ?
+          AND candidate_selections.selection_stage = 'full_review'
+        ORDER BY candidate_selections.rank ASC
+        """,
+        (run_id,),
+    ).fetchall()
+    return [(row["id"], row["canonical_url"]) for row in rows]
 
 
 if __name__ == "__main__":

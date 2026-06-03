@@ -12,6 +12,7 @@ dependencies = [
     "beautifulsoup4>=4.12",
     "feedparser>=6.0",
     "openai>=1.0",
+    "pymupdf>=1.23",
     "python-dateutil>=2.8",
     "requests>=2.31",
     "tomli>=2.0; python_version<'3.11'",
@@ -20,7 +21,6 @@ dependencies = [
 [project.optional-dependencies]
 deepdive = [
     "markdown>=3.5",
-    "pymupdf>=1.23",
     "python-dotenv>=1.0",
     "weasyprint>=60",
 ]

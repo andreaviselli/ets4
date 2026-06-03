@@ -1,0 +1,8 @@
+This paper proposes a forecasting model for inflation using macroeconomic time series.
+The dataset contains monthly observations from 1990 to 2025.
+The method is compared with an ARIMA baseline and evaluated with RMSE and CRPS metrics.
+The main limitation is that robustness to data revisions is not fully tested.
+
+The second page describes implementation details.
+Replication code is available in a public repository.
+The model architecture combines probabilistic forecasts with interpretable features.
