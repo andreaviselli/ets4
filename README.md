@@ -68,6 +68,7 @@ ets4 extract --run-id run-example123
 ets4 review --run-id run-example123
 ets4 evaluate --run-id run-example123 --labels path/to/benchmark.json
 ets4 export --run-id run-example123
+ets4 archive --run-id run-example123
 ```
 
 The default configuration is `config/feeds.example.toml`. Copy it to
@@ -107,3 +108,11 @@ triage, evidence, review, and selection metrics. The test fixture at
 `exports/{issue_id}/`. Exported public pages always include `draft: true`.
 Generated files contain an ETS4 checksum marker, so reruns are idempotent and
 human-edited files are not overwritten unless `--force` is passed.
+
+`archive` creates a zip bundle containing the run manifest, run summary, and
+exported artifacts. `run-scheduled` executes the non-publishing scheduled draft
+pipeline and finishes by exporting and archiving:
+
+```bash
+ets4 run-scheduled --issue-date 2026-06-08
+```

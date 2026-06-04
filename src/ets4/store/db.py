@@ -7,7 +7,7 @@ from typing import Any
 
 from ets4.identity import canonicalize_url, normalize_title, title_similarity
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 
 def connect(path: str | Path) -> sqlite3.Connection:
@@ -263,6 +263,40 @@ def init_db(conn: sqlite3.Connection) -> None:
             message TEXT,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(run_id, artifact_type, path)
+        );
+
+        CREATE TABLE IF NOT EXISTS run_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id TEXT REFERENCES run_manifests(run_id),
+            stage TEXT NOT NULL,
+            status TEXT NOT NULL,
+            message TEXT NOT NULL,
+            metadata_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS usage_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id TEXT REFERENCES run_manifests(run_id),
+            stage TEXT NOT NULL,
+            provider TEXT NOT NULL,
+            model TEXT NOT NULL,
+            input_tokens INTEGER NOT NULL DEFAULT 0,
+            output_tokens INTEGER NOT NULL DEFAULT 0,
+            estimated_cost_usd REAL NOT NULL DEFAULT 0.0,
+            metadata_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS archive_artifacts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id TEXT NOT NULL REFERENCES run_manifests(run_id),
+            path TEXT NOT NULL,
+            content_sha256 TEXT NOT NULL,
+            status TEXT NOT NULL,
+            message TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(run_id, path)
         );
         """
     )
@@ -796,4 +830,77 @@ def upsert_export_artifact(
             created_at = CURRENT_TIMESTAMP
         """,
         (run_id, artifact_type, path, content_sha256, status, message),
+    )
+
+
+def insert_run_event(
+    conn: sqlite3.Connection,
+    *,
+    run_id: str | None,
+    stage: str,
+    status: str,
+    message: str,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO run_events (run_id, stage, status, message, metadata_json)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (run_id, stage, status, message, json.dumps(metadata or {}, sort_keys=True)),
+    )
+
+
+def insert_usage_record(
+    conn: sqlite3.Connection,
+    *,
+    run_id: str | None,
+    stage: str,
+    provider: str,
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    estimated_cost_usd: float = 0.0,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO usage_records (
+            run_id, stage, provider, model, input_tokens, output_tokens,
+            estimated_cost_usd, metadata_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            run_id,
+            stage,
+            provider,
+            model,
+            input_tokens,
+            output_tokens,
+            estimated_cost_usd,
+            json.dumps(metadata or {}, sort_keys=True),
+        ),
+    )
+
+
+def upsert_archive_artifact(
+    conn: sqlite3.Connection,
+    *,
+    run_id: str,
+    path: str,
+    content_sha256: str,
+    status: str,
+    message: str | None = None,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO archive_artifacts (run_id, path, content_sha256, status, message)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(run_id, path) DO UPDATE SET
+            content_sha256 = excluded.content_sha256,
+            status = excluded.status,
+            message = excluded.message,
+            created_at = CURRENT_TIMESTAMP
+        """,
+        (run_id, path, content_sha256, status, message),
     )

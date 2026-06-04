@@ -5,6 +5,8 @@ import sqlite3
 from dataclasses import dataclass
 
 from ets4.models import ModelProvider
+from ets4.ops.retry import RetryConfig, retry_call
+from ets4.ops.usage import record_fake_usage
 from ets4.store.db import (
     insert_review_event,
     upsert_editorial_decision,
@@ -37,6 +39,8 @@ def run_panel_review_for_paper(
     paper_id: str,
     run_id: str,
     provider: ModelProvider,
+    model_name: str = "unknown-review-model",
+    retry_config: RetryConfig = RetryConfig(),
 ) -> PanelReviewResult:
     try:
         dossier = build_evidence_dossier(conn, paper_id=paper_id, run_id=run_id)
@@ -66,9 +70,22 @@ def run_panel_review_for_paper(
     reports: list[dict] = []
     try:
         for role in REVIEWER_ROLES:
-            result = provider.review(role, dossier.payload)
+            result = retry_call(
+                lambda role=role: provider.review(role, dossier.payload),
+                config=retry_config,
+            )
             payload = result.to_dict()
             validate_reviewer_report(payload)
+            record_fake_usage(
+                conn,
+                run_id=run_id,
+                stage=f"review:{role}",
+                provider=provider.name,
+                model=model_name,
+                input_text=str(dossier.payload),
+                output_text=str(payload),
+                metadata={"paper_id": paper_id, "dossier_id": dossier.id},
+            )
             report_id = _stable_id("report", run_id, paper_id, role)
             upsert_reviewer_report(
                 conn,
@@ -87,9 +104,22 @@ def run_panel_review_for_paper(
             )
             reports.append(payload)
 
-        decision = provider.handling_editor(dossier.payload, reports)
+        decision = retry_call(
+            lambda: provider.handling_editor(dossier.payload, reports),
+            config=retry_config,
+        )
         decision_payload = decision.to_dict()
         validate_editorial_decision(decision_payload)
+        record_fake_usage(
+            conn,
+            run_id=run_id,
+            stage="review:handling_editor",
+            provider=provider.name,
+            model=model_name,
+            input_text=str({"dossier": dossier.payload, "reports": reports}),
+            output_text=str(decision_payload),
+            metadata={"paper_id": paper_id, "dossier_id": dossier.id},
+        )
         decision_id = _stable_id("decision", run_id, paper_id)
         upsert_editorial_decision(
             conn,

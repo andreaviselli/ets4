@@ -13,11 +13,15 @@ from .export import export_run
 from .export.writer import ExportWriteError
 from .manifest import create_manifest
 from .models import get_model_provider
+from .ops.archive import create_archive_bundle
+from .ops.retry import RetryConfig, retry_call
+from .ops.usage import record_fake_usage
 from .review.workflow import run_panel_review_for_paper, selected_review_targets
 from .selection import select_full_review_candidates, select_publication_candidates
 from .store.db import (
     connect,
     init_db,
+    insert_run_event,
     insert_source_event,
     insert_manifest,
     run_exists,
@@ -120,6 +124,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Overwrite existing human-edited export files.",
     )
     export_parser.set_defaults(func=cmd_export)
+
+    archive_parser = subparsers.add_parser(
+        "archive",
+        help="Create a reproducible archive bundle for a run.",
+    )
+    archive_parser.add_argument("--run-id", required=True)
+    archive_parser.add_argument("--archive-dir", default="exports/archives")
+    archive_parser.set_defaults(func=cmd_archive)
+
+    scheduled_parser = subparsers.add_parser(
+        "run-scheduled",
+        help="Run the scheduled draft pipeline without publishing.",
+    )
+    _add_manifest_args(scheduled_parser)
+    scheduled_parser.add_argument("--output-dir", default="exports")
+    scheduled_parser.add_argument("--archive-dir", default="exports/archives")
+    scheduled_parser.add_argument("--skip-collect", action="store_true")
+    scheduled_parser.add_argument("--skip-extract", action="store_true")
+    scheduled_parser.add_argument("--force-export", action="store_true")
+    scheduled_parser.set_defaults(func=cmd_run_scheduled)
     return parser
 
 
@@ -160,6 +184,13 @@ def cmd_collect(args: argparse.Namespace) -> int:
     with connect(args.db) as conn:
         init_db(conn)
         run_id = _ensure_run_manifest(conn, config, args)
+        insert_run_event(
+            conn,
+            run_id=run_id,
+            stage="collect",
+            status="started",
+            message="Collect started",
+        )
         for source in config.sources:
             upsert_source(conn, source)
             if args.dry_run:
@@ -174,7 +205,7 @@ def cmd_collect(args: argparse.Namespace) -> int:
                 )
                 continue
             try:
-                candidates = collect_rss_source(source)
+                candidates = retry_call(lambda source=source: collect_rss_source(source))
                 for candidate in candidates:
                     upsert_paper(
                         conn,
@@ -205,6 +236,21 @@ def cmd_collect(args: argparse.Namespace) -> int:
                     status="error",
                     message=str(exc),
                 )
+                insert_run_event(
+                    conn,
+                    run_id=run_id,
+                    stage="collect",
+                    status="error",
+                    message=str(exc),
+                    metadata={"source_id": source.id},
+                )
+        insert_run_event(
+            conn,
+            run_id=run_id,
+            stage="collect",
+            status="ok",
+            message=f"Collected {collected} candidates",
+        )
         conn.commit()
     print(f"Run manifest: {run_id}")
     print(f"Registered sources: {len(config.sources)}")
@@ -219,6 +265,13 @@ def cmd_triage(args: argparse.Namespace) -> int:
     with connect(args.db) as conn:
         init_db(conn)
         run_id = _ensure_run_manifest(conn, config, args)
+        insert_run_event(
+            conn,
+            run_id=run_id,
+            stage="triage",
+            status="started",
+            message="Triage started",
+        )
         rows = conn.execute(
             """
             SELECT
@@ -235,7 +288,20 @@ def cmd_triage(args: argparse.Namespace) -> int:
             (config.issue.max_candidates_to_triage,),
         ).fetchall()
         for row in rows:
-            result = provider.triage(row["title"], row["abstract"], row["source_name"])
+            input_text = f"{row['title']}\n{row['abstract']}\n{row['source_name']}"
+            result = retry_call(
+                lambda row=row: provider.triage(row["title"], row["abstract"], row["source_name"])
+            )
+            record_fake_usage(
+                conn,
+                run_id=run_id,
+                stage="triage",
+                provider=provider.name,
+                model=config.model_policy.triage_model,
+                input_text=input_text,
+                output_text=json.dumps(result.__dict__, sort_keys=True),
+                metadata={"paper_id": row["id"]},
+            )
             conn.execute(
                 """
                 INSERT OR REPLACE INTO triage_reviews (
@@ -265,6 +331,13 @@ def cmd_triage(args: argparse.Namespace) -> int:
             )
             reviewed += 1
         selection = select_full_review_candidates(conn, run_id=run_id, config=config)
+        insert_run_event(
+            conn,
+            run_id=run_id,
+            stage="triage",
+            status="ok",
+            message=f"Triaged {reviewed} candidates",
+        )
         conn.commit()
     print(f"Run manifest: {run_id}")
     print(f"Triaged candidates: {reviewed}")
@@ -296,6 +369,13 @@ def cmd_extract(args: argparse.Namespace) -> int:
     with connect(args.db) as conn:
         init_db(conn)
         run_id = _ensure_run_manifest(conn, config, args)
+        insert_run_event(
+            conn,
+            run_id=run_id,
+            stage="extract",
+            status="started",
+            message="Extraction started",
+        )
         targets = _extract_targets(conn, run_id=run_id, paper_id=args.paper_id, source=args.source)
         for paper_id, source_uri in targets:
             result = process_document_for_paper(
@@ -311,6 +391,13 @@ def cmd_extract(args: argparse.Namespace) -> int:
                 f"{paper_id}: {result.status}; pages={result.page_count}; "
                 f"evidence={result.evidence_count}; source={source_uri}"
             )
+        insert_run_event(
+            conn,
+            run_id=run_id,
+            stage="extract",
+            status="error" if errors else "ok",
+            message=f"Processed {processed} documents with {errors} errors",
+        )
     print(f"Run manifest: {run_id}")
     print(f"Processed documents: {processed}")
     print(f"Document errors: {errors}")
@@ -325,6 +412,13 @@ def cmd_review(args: argparse.Namespace) -> int:
     with connect(args.db) as conn:
         init_db(conn)
         run_id = _ensure_run_manifest(conn, config, args)
+        insert_run_event(
+            conn,
+            run_id=run_id,
+            stage="review",
+            status="started",
+            message="Review started",
+        )
         targets = selected_review_targets(conn, run_id=run_id, paper_id=args.paper_id)
         for paper_id in targets:
             result = run_panel_review_for_paper(
@@ -332,6 +426,7 @@ def cmd_review(args: argparse.Namespace) -> int:
                 paper_id=paper_id,
                 run_id=run_id,
                 provider=provider,
+                model_name=config.model_policy.review_model,
             )
             reviewed += 1
             if result.status != "ok":
@@ -343,6 +438,13 @@ def cmd_review(args: argparse.Namespace) -> int:
                 f"decision={decision}; deep_dive_score={score}"
             )
         publication_selection = select_publication_candidates(conn, run_id=run_id, config=config)
+        insert_run_event(
+            conn,
+            run_id=run_id,
+            stage="review",
+            status="error" if errors else "ok",
+            message=f"Panel-reviewed {reviewed} papers with {errors} errors",
+        )
     print(f"Run manifest: {run_id}")
     print(f"Panel-reviewed papers: {reviewed}")
     print(
@@ -403,6 +505,13 @@ def cmd_export(args: argparse.Namespace) -> int:
             raise SystemExit("export requires --run-id for a reviewed run")
         if not run_exists(conn, args.run_id):
             raise SystemExit(f"Run manifest not found: {args.run_id}")
+        insert_run_event(
+            conn,
+            run_id=args.run_id,
+            stage="export",
+            status="started",
+            message="Export started",
+        )
         try:
             result = export_run(
                 conn,
@@ -411,13 +520,127 @@ def cmd_export(args: argparse.Namespace) -> int:
                 force=args.force,
             )
         except ExportWriteError as exc:
+            insert_run_event(
+                conn,
+                run_id=args.run_id,
+                stage="export",
+                status="error",
+                message=str(exc),
+            )
+            conn.commit()
             raise SystemExit(str(exc)) from exc
+        insert_run_event(
+            conn,
+            run_id=args.run_id,
+            stage="export",
+            status="ok",
+            message=f"Exported {result.artifact_count} artifacts",
+        )
+        conn.commit()
     print(f"Run manifest: {result.run_id}")
     print(f"Export directory: {result.output_dir}")
     print(f"Selected records exported: {result.selected_count}")
     for artifact in result.artifacts:
         print(f"{artifact.artifact_type}: {artifact.path}")
     return 0
+
+
+def cmd_archive(args: argparse.Namespace) -> int:
+    with connect(args.db) as conn:
+        init_db(conn)
+        if not run_exists(conn, args.run_id):
+            raise SystemExit(f"Run manifest not found: {args.run_id}")
+        insert_run_event(
+            conn,
+            run_id=args.run_id,
+            stage="archive",
+            status="started",
+            message="Archive started",
+        )
+        result = create_archive_bundle(conn, run_id=args.run_id, archive_dir=args.archive_dir)
+        insert_run_event(
+            conn,
+            run_id=args.run_id,
+            stage="archive",
+            status="ok",
+            message=f"Created archive with {result.file_count} files",
+            metadata={"path": str(result.path)},
+        )
+        conn.commit()
+    print(f"Run manifest: {result.run_id}")
+    print(f"Archive: {result.path}")
+    print(f"Files archived: {result.file_count}")
+    return 0
+
+
+def cmd_run_scheduled(args: argparse.Namespace) -> int:
+    config = load_config(args.config)
+    provider = get_model_provider(config.model_policy.provider)
+    with connect(args.db) as conn:
+        init_db(conn)
+        run_id = _scheduled_run_id(conn, config, args)
+        insert_run_event(
+            conn,
+            run_id=run_id,
+            stage="scheduled",
+            status="started",
+            message="Scheduled draft run started",
+        )
+        collected = 0
+        if not args.skip_collect:
+            collected = _scheduled_collect(conn, config=config, run_id=run_id)
+        reviewed = _scheduled_triage(conn, config=config, run_id=run_id, provider=provider)
+        selection = select_full_review_candidates(conn, run_id=run_id, config=config)
+        extracted, extraction_errors = (0, 0)
+        if not args.skip_extract:
+            extracted, extraction_errors = _scheduled_extract(conn, run_id=run_id)
+        panel_reviewed, review_errors = _scheduled_review(
+            conn,
+            config=config,
+            run_id=run_id,
+            provider=provider,
+        )
+        publication_selection = select_publication_candidates(conn, run_id=run_id, config=config)
+        export_result = export_run(
+            conn,
+            run_id=run_id,
+            output_dir=args.output_dir,
+            force=args.force_export,
+        )
+        archive_result = create_archive_bundle(conn, run_id=run_id, archive_dir=args.archive_dir)
+        status = "error" if extraction_errors or review_errors else "ok"
+        insert_run_event(
+            conn,
+            run_id=run_id,
+            stage="scheduled",
+            status=status,
+            message="Scheduled draft run finished",
+            metadata={
+                "collected": collected,
+                "triaged": reviewed,
+                "selected_full_review": selection.selected_count,
+                "extracted": extracted,
+                "extraction_errors": extraction_errors,
+                "panel_reviewed": panel_reviewed,
+                "review_errors": review_errors,
+                "deep_dive_drafts": publication_selection.deep_dive_selected_count,
+                "short_mentions": publication_selection.short_mention_selected_count,
+                "export_dir": str(export_result.output_dir),
+                "archive": str(archive_result.path),
+            },
+        )
+        conn.commit()
+    print(f"Run manifest: {run_id}")
+    print(f"Collected candidates: {collected}")
+    print(f"Triaged candidates: {reviewed}")
+    print(f"Selected for full review: {selection.selected_count}")
+    print(f"Extracted documents: {extracted}; errors={extraction_errors}")
+    print(f"Panel-reviewed papers: {panel_reviewed}; errors={review_errors}")
+    print(f"Selected deep-dive drafts: {publication_selection.deep_dive_selected_count}")
+    print(f"Selected short mentions: {publication_selection.short_mention_selected_count}")
+    print(f"Export directory: {export_result.output_dir}")
+    print(f"Archive: {archive_result.path}")
+    return 1 if status == "error" else 0
 
 
 def _ensure_run_manifest(conn, config, args) -> str:
@@ -433,6 +656,217 @@ def _ensure_run_manifest(conn, config, args) -> str:
     )
     insert_manifest(conn, manifest)
     return manifest.run_id
+
+
+def _scheduled_run_id(conn, config, args) -> str:
+    if args.run_id:
+        if not run_exists(conn, args.run_id):
+            raise SystemExit(f"Run manifest not found: {args.run_id}")
+        return args.run_id
+    manifest = create_manifest(
+        config=config,
+        issue_date=date.fromisoformat(args.issue_date),
+        automation_mode="scheduled-draft",
+    )
+    insert_manifest(conn, manifest)
+    return manifest.run_id
+
+
+def _scheduled_collect(conn, *, config, run_id: str) -> int:
+    collected = 0
+    insert_run_event(
+        conn,
+        run_id=run_id,
+        stage="collect",
+        status="started",
+        message="Collect started",
+    )
+    for source in config.sources:
+        upsert_source(conn, source)
+        if source.type != "rss":
+            insert_source_event(
+                conn,
+                source_id=source.id,
+                run_id=run_id,
+                status="skipped",
+                message=f"Unsupported source type: {source.type}",
+            )
+            continue
+        try:
+            candidates = retry_call(lambda source=source: collect_rss_source(source))
+            for candidate in candidates:
+                upsert_paper(
+                    conn,
+                    paper_id=candidate.paper_id,
+                    title=candidate.title,
+                    canonical_url=candidate.canonical_url,
+                    abstract=candidate.abstract,
+                    authors=candidate.authors,
+                    source_id=candidate.source_id,
+                    published_date=candidate.published_date,
+                    doi=candidate.doi,
+                    arxiv_id=candidate.arxiv_id,
+                )
+            collected += len(candidates)
+            insert_source_event(
+                conn,
+                source_id=source.id,
+                run_id=run_id,
+                status="ok",
+                message=f"Collected {len(candidates)} candidates",
+                candidate_count=len(candidates),
+            )
+        except Exception as exc:
+            insert_source_event(
+                conn,
+                source_id=source.id,
+                run_id=run_id,
+                status="error",
+                message=str(exc),
+            )
+    insert_run_event(
+        conn,
+        run_id=run_id,
+        stage="collect",
+        status="ok",
+        message=f"Collected {collected} candidates",
+    )
+    conn.commit()
+    return collected
+
+
+def _scheduled_triage(conn, *, config, run_id: str, provider) -> int:
+    reviewed = 0
+    insert_run_event(
+        conn,
+        run_id=run_id,
+        stage="triage",
+        status="started",
+        message="Triage started",
+    )
+    rows = conn.execute(
+        """
+        SELECT papers.id, papers.title, papers.abstract, COALESCE(sources.name, '') AS source_name
+        FROM papers
+        LEFT JOIN sources ON sources.id = papers.source_id
+        WHERE papers.status = 'candidate'
+        ORDER BY papers.created_at ASC
+        LIMIT ?
+        """,
+        (config.issue.max_candidates_to_triage,),
+    ).fetchall()
+    for row in rows:
+        result = retry_call(
+            lambda row=row: provider.triage(row["title"], row["abstract"], row["source_name"])
+        )
+        record_fake_usage(
+            conn,
+            run_id=run_id,
+            stage="triage",
+            provider=provider.name,
+            model=config.model_policy.triage_model,
+            input_text=f"{row['title']}\n{row['abstract']}\n{row['source_name']}",
+            output_text=json.dumps(result.__dict__, sort_keys=True),
+            metadata={"paper_id": row["id"]},
+        )
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO triage_reviews (
+                paper_id, run_id, provider, decision, category_hint,
+                forecasting_signal, economic_signal, score, confidence, reason
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                row["id"],
+                run_id,
+                provider.name,
+                result.decision,
+                result.category_hint,
+                result.forecasting_signal,
+                result.economic_signal,
+                result.score,
+                result.confidence,
+                result.reason,
+            ),
+        )
+        next_status = "shortlisted" if result.decision == "assign_reviewers" else result.decision
+        conn.execute(
+            "UPDATE papers SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (next_status, row["id"]),
+        )
+        reviewed += 1
+    insert_run_event(
+        conn,
+        run_id=run_id,
+        stage="triage",
+        status="ok",
+        message=f"Triaged {reviewed} candidates",
+    )
+    conn.commit()
+    return reviewed
+
+
+def _scheduled_extract(conn, *, run_id: str) -> tuple[int, int]:
+    processed = 0
+    errors = 0
+    insert_run_event(
+        conn,
+        run_id=run_id,
+        stage="extract",
+        status="started",
+        message="Extraction started",
+    )
+    for paper_id, source_uri in _extract_targets(conn, run_id=run_id, paper_id=None, source=None):
+        result = process_document_for_paper(
+            conn,
+            paper_id=paper_id,
+            source_uri=source_uri,
+            run_id=run_id,
+        )
+        processed += 1
+        if result.status != "ok":
+            errors += 1
+    insert_run_event(
+        conn,
+        run_id=run_id,
+        stage="extract",
+        status="error" if errors else "ok",
+        message=f"Processed {processed} documents with {errors} errors",
+    )
+    conn.commit()
+    return processed, errors
+
+
+def _scheduled_review(conn, *, config, run_id: str, provider) -> tuple[int, int]:
+    reviewed = 0
+    errors = 0
+    insert_run_event(
+        conn,
+        run_id=run_id,
+        stage="review",
+        status="started",
+        message="Review started",
+    )
+    for paper_id in selected_review_targets(conn, run_id=run_id):
+        result = run_panel_review_for_paper(
+            conn,
+            paper_id=paper_id,
+            run_id=run_id,
+            provider=provider,
+            model_name=config.model_policy.review_model,
+        )
+        reviewed += 1
+        if result.status != "ok":
+            errors += 1
+    insert_run_event(
+        conn,
+        run_id=run_id,
+        stage="review",
+        status="error" if errors else "ok",
+        message=f"Panel-reviewed {reviewed} papers with {errors} errors",
+    )
+    conn.commit()
+    return reviewed, errors
 
 
 def _extract_targets(

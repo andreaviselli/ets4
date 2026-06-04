@@ -167,6 +167,19 @@ Exit criteria:
 
 Goal: make the tool dependable for monthly use.
 
+Initial implementation status:
+
+- Run events are stored in `run_events`.
+- Model/provider usage estimates are stored in `usage_records`.
+- Source/model operations use retry/backoff wrappers.
+- Archive bundles are written with `ets4 archive` and recorded in
+  `archive_artifacts`.
+- `ets4 run-scheduled` runs the scheduled draft pipeline through export and
+  archive generation without publishing.
+- The current scheduled runner writes local drafts and archives; creating pull
+  requests in a downstream publishing repository remains a post-roadmap
+  integration.
+
 - Add run logs and review manifests.
 - Add cost and token accounting.
 - Add model/provider configuration.
