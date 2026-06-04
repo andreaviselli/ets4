@@ -20,6 +20,37 @@ The system should be evaluated for:
 
 Create small, high-quality labeled sets before scaling.
 
+ETS4 currently supports JSON benchmark files with this shape:
+
+```json
+{
+  "version": "benchmark-id",
+  "papers": [
+    {
+      "paper_id": "paper-1",
+      "relevance_label": "directly_relevant",
+      "expected_category": "directly_relevant",
+      "expected_triage_decision": "assign_reviewers",
+      "expected_editorial_decision": "full_deep_dive",
+      "expected_deep_dive": true,
+      "expected_short_mention": false,
+      "required_evidence_kinds": ["method", "dataset", "metric"],
+      "hard_negative": false,
+      "high_value": true
+    }
+  ]
+}
+```
+
+Run evaluation with:
+
+```bash
+ets4 evaluate --run-id run-example123 --labels path/to/benchmark.json
+```
+
+Each evaluation stores one row in `evaluation_runs` and one row per paper in
+`evaluation_items`.
+
 ### Relevance Set
 
 Labels:

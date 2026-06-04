@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import json
 from datetime import date
 from pathlib import Path
 
 from .collect import collect_rss_source
 from .config import load_config
 from .documents import process_document_for_paper
+from .evaluate import evaluate_run
 from .manifest import create_manifest
 from .models import get_model_provider
 from .review.workflow import run_panel_review_for_paper, selected_review_targets
@@ -44,7 +46,10 @@ def build_parser() -> argparse.ArgumentParser:
     _add_manifest_args(manifest_parser)
     manifest_parser.set_defaults(func=cmd_manifest)
 
-    collect_parser = subparsers.add_parser("collect", help="Collect candidates from configured sources.")
+    collect_parser = subparsers.add_parser(
+        "collect",
+        help="Collect candidates from configured sources.",
+    )
     _add_manifest_args(collect_parser)
     collect_parser.add_argument("--dry-run", action="store_true", help="Register sources only.")
     collect_parser.set_defaults(func=cmd_collect)
@@ -74,10 +79,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run evidence-grounded independent reviewer reports and handling-editor memo.",
     )
     _add_manifest_args(review_parser)
-    review_parser.add_argument("--paper-id", help="Review one paper instead of all selected papers.")
+    review_parser.add_argument(
+        "--paper-id",
+        help="Review one paper instead of all selected papers.",
+    )
     review_parser.set_defaults(func=cmd_review)
 
-    evaluate_parser = subparsers.add_parser("evaluate", help="Placeholder for evaluation harness.")
+    evaluate_parser = subparsers.add_parser(
+        "evaluate",
+        help="Evaluate a completed run against labeled benchmark JSON.",
+    )
+    _add_manifest_args(evaluate_parser)
+    evaluate_parser.add_argument(
+        "--labels",
+        required=True,
+        help="Path to benchmark label JSON.",
+    )
+    evaluate_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the full metric JSON.",
+    )
     evaluate_parser.set_defaults(func=cmd_evaluate)
 
     export_parser = subparsers.add_parser("export", help="Placeholder for draft export.")
@@ -183,7 +205,11 @@ def cmd_triage(args: argparse.Namespace) -> int:
         run_id = _ensure_run_manifest(conn, config, args)
         rows = conn.execute(
             """
-            SELECT papers.id, papers.title, papers.abstract, COALESCE(sources.name, '') AS source_name
+            SELECT
+                papers.id,
+                papers.title,
+                papers.abstract,
+                COALESCE(sources.name, '') AS source_name
             FROM papers
             LEFT JOIN sources ON sources.id = papers.source_id
             WHERE papers.status = 'candidate'
@@ -214,7 +240,9 @@ def cmd_triage(args: argparse.Namespace) -> int:
                     result.reason,
                 ),
             )
-            next_status = "shortlisted" if result.decision == "assign_reviewers" else result.decision
+            next_status = (
+                "shortlisted" if result.decision == "assign_reviewers" else result.decision
+            )
             conn.execute(
                 "UPDATE papers SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
                 (next_status, row["id"]),
@@ -312,7 +340,43 @@ def cmd_review(args: argparse.Namespace) -> int:
 
 
 def cmd_evaluate(args: argparse.Namespace) -> int:
-    print("Evaluation harness is not implemented yet. Next phase: labeled fixtures + metrics.")
+    with connect(args.db) as conn:
+        init_db(conn)
+        if not args.run_id:
+            raise SystemExit("evaluate requires --run-id for a completed run")
+        if not run_exists(conn, args.run_id):
+            raise SystemExit(f"Run manifest not found: {args.run_id}")
+        run_id = args.run_id
+        result = evaluate_run(conn, run_id=run_id, labels_path=args.labels)
+    if args.json:
+        print(json.dumps(result.metrics, indent=2, sort_keys=True))
+    else:
+        triage = result.metrics["triage"]
+        evidence = result.metrics["evidence"]
+        review = result.metrics["review"]
+        selection = result.metrics["selection"]
+        print(f"Run manifest: {run_id}")
+        print(f"Evaluation run: {result.evaluation_run_id}")
+        print(f"Benchmark: {result.benchmark_version}")
+        print(f"Labeled papers: {result.metrics['labeled_papers']}")
+        print(f"Triage decision accuracy: {_format_metric(triage['decision_accuracy'])}")
+        print(f"Full-review selected precision: {_format_metric(triage['selected_precision'])}")
+        print(f"Relevant-paper recall: {_format_metric(triage['relevant_recall'])}")
+        print(
+            "Hard-negative false-positive rate: "
+            f"{_format_metric(triage['hard_negative_false_positive_rate'])}"
+        )
+        print(
+            "Evidence required-kind coverage: "
+            f"{_format_metric(evidence['required_kind_coverage'])}"
+        )
+        print(f"Reviewer citation coverage: {_format_metric(review['citation_coverage'])}")
+        print(f"Invalid citation rate: {_format_metric(review['invalid_citation_rate'])}")
+        print(
+            "Editorial decision accuracy: "
+            f"{_format_metric(review['editorial_decision_accuracy'])}"
+        )
+        print(f"Deep-dive selection accuracy: {_format_metric(selection['deep_dive_accuracy'])}")
     return 0
 
 
@@ -359,6 +423,12 @@ def _extract_targets(
         (run_id,),
     ).fetchall()
     return [(row["id"], row["canonical_url"]) for row in rows]
+
+
+def _format_metric(value: float | None) -> str:
+    if value is None:
+        return "n/a"
+    return f"{value:.3f}"
 
 
 if __name__ == "__main__":

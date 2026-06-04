@@ -280,7 +280,10 @@ class FakeModelProvider:
         return EditorialDecisionResult(
             decision=decision,
             deep_dive_score=round(max(0.0, adjusted_score), 3),
-            confidence=round(max(0.2, min(0.85, 0.55 + evidence_count * 0.03 - disagreement * 0.05)), 3),
+            confidence=round(
+                max(0.2, min(0.85, 0.55 + evidence_count * 0.03 - disagreement * 0.05)),
+                3,
+            ),
             rationale=(
                 f"Handling editor reconciled {len(reports)} independent reports with "
                 f"average score {avg_score:.2f} and disagreement {disagreement:.2f}."

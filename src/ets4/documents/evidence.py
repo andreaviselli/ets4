@@ -25,23 +25,25 @@ KEYWORD_RULES = (
 )
 
 
-def extract_evidence_candidates(pages: list[PageText], *, document_id: str) -> list[EvidenceCandidate]:
+def extract_evidence_candidates(
+    pages: list[PageText],
+    *,
+    document_id: str,
+) -> list[EvidenceCandidate]:
     candidates = []
     for page in pages:
         for paragraph in _paragraphs(page.text):
-            kind = _classify(paragraph)
-            if kind is None:
-                continue
-            candidates.append(
-                EvidenceCandidate(
-                    page_number=page.page_number,
-                    kind=kind,
-                    label=kind.replace("_", " ").title(),
-                    text=paragraph,
-                    source_locator=f"{document_id}:p{page.page_number}",
-                    confidence=0.7,
+            for kind in _classify_all(paragraph):
+                candidates.append(
+                    EvidenceCandidate(
+                        page_number=page.page_number,
+                        kind=kind,
+                        label=kind.replace("_", " ").title(),
+                        text=paragraph,
+                        source_locator=f"{document_id}:p{page.page_number}",
+                        confidence=0.7,
+                    )
                 )
-            )
     return candidates
 
 
@@ -58,9 +60,10 @@ def _paragraphs(text: str) -> list[str]:
     return chunks
 
 
-def _classify(text: str) -> str | None:
+def _classify_all(text: str) -> list[str]:
     lowered = text.lower()
+    matches = []
     for kind, keywords in KEYWORD_RULES:
         if any(keyword in lowered for keyword in keywords):
-            return kind
-    return None
+            matches.append(kind)
+    return matches

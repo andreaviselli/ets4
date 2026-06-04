@@ -141,7 +141,10 @@ def test_cli_extract_explicit_document(tmp_path) -> None:
     with connect(db_path) as conn:
         assert conn.execute("SELECT COUNT(*) FROM review_dossiers").fetchone()[0] == 1
         assert conn.execute("SELECT COUNT(*) FROM reviewer_reports").fetchone()[0] == 5
-        assert conn.execute("SELECT decision FROM editorial_decisions").fetchone()[0] == "full_deep_dive"
+        assert (
+            conn.execute("SELECT decision FROM editorial_decisions").fetchone()[0]
+            == "full_deep_dive"
+        )
         assert (
             conn.execute(
                 """

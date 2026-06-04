@@ -7,7 +7,7 @@ from typing import Any
 
 from ets4.identity import canonicalize_url, normalize_title, title_similarity
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 def connect(path: str | Path) -> sqlite3.Connection:
@@ -232,6 +232,26 @@ def init_db(conn: sqlite3.Connection) -> None:
             message TEXT NOT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS evaluation_runs (
+            id TEXT PRIMARY KEY,
+            run_id TEXT NOT NULL REFERENCES run_manifests(run_id),
+            benchmark_version TEXT NOT NULL,
+            labels_path TEXT NOT NULL,
+            evaluator_version TEXT NOT NULL,
+            metrics_json TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS evaluation_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            evaluation_run_id TEXT NOT NULL REFERENCES evaluation_runs(id),
+            paper_id TEXT NOT NULL,
+            item_json TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
         """
     )
     _ensure_column(conn, "papers", "normalized_title", "TEXT NOT NULL DEFAULT ''")
@@ -354,7 +374,10 @@ def upsert_paper(
             published_date = COALESCE(excluded.published_date, papers.published_date),
             doi = COALESCE(excluded.doi, papers.doi),
             arxiv_id = COALESCE(excluded.arxiv_id, papers.arxiv_id),
-            normalized_title = COALESCE(NULLIF(excluded.normalized_title, ''), papers.normalized_title),
+            normalized_title = COALESCE(
+                NULLIF(excluded.normalized_title, ''),
+                papers.normalized_title
+            ),
             updated_at = CURRENT_TIMESTAMP
         """,
         (
@@ -685,4 +708,55 @@ def insert_review_event(
         VALUES (?, ?, ?, ?, ?)
         """,
         (paper_id, run_id, dossier_id, status, message),
+    )
+
+
+def insert_evaluation_run(
+    conn: sqlite3.Connection,
+    *,
+    evaluation_run_id: str,
+    run_id: str,
+    benchmark_version: str,
+    labels_path: str,
+    evaluator_version: str,
+    metrics_json: dict[str, Any],
+    status: str,
+) -> None:
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO evaluation_runs (
+            id, run_id, benchmark_version, labels_path, evaluator_version, metrics_json, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            evaluation_run_id,
+            run_id,
+            benchmark_version,
+            labels_path,
+            evaluator_version,
+            json.dumps(metrics_json, sort_keys=True),
+            status,
+        ),
+    )
+
+
+def insert_evaluation_item(
+    conn: sqlite3.Connection,
+    *,
+    evaluation_run_id: str,
+    paper_id: str,
+    item_json: dict[str, Any],
+    status: str,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO evaluation_items (evaluation_run_id, paper_id, item_json, status)
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            evaluation_run_id,
+            paper_id,
+            json.dumps(item_json, sort_keys=True),
+            status,
+        ),
     )

@@ -1,0 +1,32 @@
+{
+  "version": "phase5-fixture-v1",
+  "papers": [
+    {
+      "paper_id": "paper-1",
+      "relevance_label": "directly_relevant",
+      "expected_category": "directly_relevant",
+      "expected_triage_decision": "assign_reviewers",
+      "expected_editorial_decision": "full_deep_dive",
+      "expected_deep_dive": true,
+      "expected_short_mention": false,
+      "required_evidence_kinds": [
+        "method",
+        "dataset",
+        "metric",
+        "baseline",
+        "limitation",
+        "code"
+      ],
+      "high_value": true
+    },
+    {
+      "paper_id": "paper-2",
+      "relevance_label": "not_relevant",
+      "expected_category": "not_relevant",
+      "expected_triage_decision": "reject",
+      "expected_deep_dive": false,
+      "expected_short_mention": false,
+      "hard_negative": true
+    }
+  ]
+}

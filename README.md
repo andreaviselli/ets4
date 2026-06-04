@@ -66,6 +66,7 @@ ets4 triage --run-id run-example123
 ets4 select --run-id run-example123
 ets4 extract --run-id run-example123
 ets4 review --run-id run-example123
+ets4 evaluate --run-id run-example123 --labels path/to/benchmark.json
 ```
 
 The default configuration is `config/feeds.example.toml`. Copy it to
@@ -95,3 +96,8 @@ for human override before export. For one paper:
 ```bash
 ets4 review --run-id run-example123 --paper-id paper-1
 ```
+
+`evaluate` compares a completed run against a labeled benchmark JSON file,
+stores aggregate and per-paper evaluation records in SQLite, and reports core
+triage, evidence, review, and selection metrics. The test fixture at
+`tests/fixtures/evaluation/benchmark.json` shows the expected label format.

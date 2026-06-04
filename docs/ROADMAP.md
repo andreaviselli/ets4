@@ -112,6 +112,18 @@ Exit criteria:
 
 Goal: make quality measurable before optimizing prompts or models.
 
+Initial implementation status:
+
+- Benchmark labels are loaded from JSON fixtures.
+- `ets4 evaluate` scores completed runs against labeled paper sets.
+- Evaluation runs and per-paper results are stored in SQLite.
+- Current metrics cover triage accuracy, full-review selection precision/recall,
+  hard-negative false positives, high-value false negatives, required evidence
+  coverage, citation validity, reviewer disagreement, editorial decision
+  accuracy, and deep-dive/short-mention selection accuracy.
+- Draft-quality and publication-readiness metrics remain blocked until Phase 6
+  draft export exists.
+
 - Implement the benchmark described in `docs/EVALUATION.md`.
 - Create labeled paper sets for relevance, category, evidence support, and publication readiness.
 - Add regression tests for prompts, models, and retrieval changes.
