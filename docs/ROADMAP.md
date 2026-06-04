@@ -80,6 +80,18 @@ Exit criteria:
 
 Goal: replace one-shot scoring with staged editorial judgment.
 
+Initial implementation status:
+
+- Evidence dossiers are built from stored document pages and evidence items.
+- Independent reviewer reports are stored before handling-editor reconciliation.
+- The fake provider supports deterministic role-specific reports and decision memos.
+- Reviewed papers are ranked into budgeted `deep_dive_draft` and
+  `short_mention` selections.
+- The current implementation covers relevance, methods, evidence, practitioner
+  value, transferability, and handling editor roles.
+- Copy editing, claim ledgers, and human override UI remain later
+  implementation work.
+
 - Implement the workflow in `docs/REVIEW_WORKFLOW.md`.
 - Add role-specific reviewers: relevance, methods, evidence, practitioner value, transferability, handling editor, copy editor.
 - Preserve independent reviewer reports before reconciliation.

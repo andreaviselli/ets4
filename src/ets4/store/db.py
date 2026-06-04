@@ -7,7 +7,7 @@ from typing import Any
 
 from ets4.identity import canonicalize_url, normalize_title, title_similarity
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 def connect(path: str | Path) -> sqlite3.Connection:
@@ -170,6 +170,64 @@ def init_db(conn: sqlite3.Connection) -> None:
             paper_id TEXT REFERENCES papers(id),
             document_id TEXT REFERENCES documents(id),
             run_id TEXT REFERENCES run_manifests(run_id),
+            status TEXT NOT NULL,
+            message TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS review_dossiers (
+            id TEXT PRIMARY KEY,
+            paper_id TEXT NOT NULL REFERENCES papers(id),
+            run_id TEXT NOT NULL REFERENCES run_manifests(run_id),
+            document_id TEXT REFERENCES documents(id),
+            evidence_count INTEGER NOT NULL,
+            dossier_json TEXT NOT NULL,
+            status TEXT NOT NULL,
+            error_message TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(paper_id, run_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS reviewer_reports (
+            id TEXT PRIMARY KEY,
+            paper_id TEXT NOT NULL REFERENCES papers(id),
+            run_id TEXT NOT NULL REFERENCES run_manifests(run_id),
+            dossier_id TEXT NOT NULL REFERENCES review_dossiers(id),
+            reviewer_role TEXT NOT NULL,
+            provider TEXT NOT NULL,
+            recommendation TEXT NOT NULL,
+            score REAL NOT NULL,
+            confidence REAL NOT NULL,
+            report_json TEXT NOT NULL,
+            evidence_item_ids_json TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(paper_id, run_id, reviewer_role)
+        );
+
+        CREATE TABLE IF NOT EXISTS editorial_decisions (
+            id TEXT PRIMARY KEY,
+            paper_id TEXT NOT NULL REFERENCES papers(id),
+            run_id TEXT NOT NULL REFERENCES run_manifests(run_id),
+            dossier_id TEXT NOT NULL REFERENCES review_dossiers(id),
+            provider TEXT NOT NULL,
+            decision TEXT NOT NULL,
+            deep_dive_score REAL NOT NULL,
+            confidence REAL NOT NULL,
+            memo_json TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(paper_id, run_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS review_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            paper_id TEXT REFERENCES papers(id),
+            run_id TEXT REFERENCES run_manifests(run_id),
+            dossier_id TEXT REFERENCES review_dossiers(id),
             status TEXT NOT NULL,
             message TEXT NOT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -472,4 +530,159 @@ def insert_document_event(
         VALUES (?, ?, ?, ?, ?)
         """,
         (paper_id, document_id, run_id, status, message),
+    )
+
+
+def upsert_review_dossier(
+    conn: sqlite3.Connection,
+    *,
+    dossier_id: str,
+    paper_id: str,
+    run_id: str,
+    document_id: str | None,
+    evidence_count: int,
+    dossier_json: dict[str, Any],
+    status: str,
+    error_message: str | None = None,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO review_dossiers (
+            id, paper_id, run_id, document_id, evidence_count, dossier_json,
+            status, error_message
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(paper_id, run_id) DO UPDATE SET
+            id = excluded.id,
+            document_id = excluded.document_id,
+            evidence_count = excluded.evidence_count,
+            dossier_json = excluded.dossier_json,
+            status = excluded.status,
+            error_message = excluded.error_message,
+            updated_at = CURRENT_TIMESTAMP
+        """,
+        (
+            dossier_id,
+            paper_id,
+            run_id,
+            document_id,
+            evidence_count,
+            json.dumps(dossier_json, sort_keys=True),
+            status,
+            error_message,
+        ),
+    )
+
+
+def upsert_reviewer_report(
+    conn: sqlite3.Connection,
+    *,
+    report_id: str,
+    paper_id: str,
+    run_id: str,
+    dossier_id: str,
+    reviewer_role: str,
+    provider: str,
+    recommendation: str,
+    score: float,
+    confidence: float,
+    report_json: dict[str, Any],
+    evidence_item_ids: list[int],
+    status: str,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO reviewer_reports (
+            id, paper_id, run_id, dossier_id, reviewer_role, provider,
+            recommendation, score, confidence, report_json, evidence_item_ids_json, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(paper_id, run_id, reviewer_role) DO UPDATE SET
+            id = excluded.id,
+            dossier_id = excluded.dossier_id,
+            provider = excluded.provider,
+            recommendation = excluded.recommendation,
+            score = excluded.score,
+            confidence = excluded.confidence,
+            report_json = excluded.report_json,
+            evidence_item_ids_json = excluded.evidence_item_ids_json,
+            status = excluded.status,
+            updated_at = CURRENT_TIMESTAMP
+        """,
+        (
+            report_id,
+            paper_id,
+            run_id,
+            dossier_id,
+            reviewer_role,
+            provider,
+            recommendation,
+            score,
+            confidence,
+            json.dumps(report_json, sort_keys=True),
+            json.dumps(evidence_item_ids),
+            status,
+        ),
+    )
+
+
+def upsert_editorial_decision(
+    conn: sqlite3.Connection,
+    *,
+    decision_id: str,
+    paper_id: str,
+    run_id: str,
+    dossier_id: str,
+    provider: str,
+    decision: str,
+    deep_dive_score: float,
+    confidence: float,
+    memo_json: dict[str, Any],
+    status: str,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO editorial_decisions (
+            id, paper_id, run_id, dossier_id, provider, decision,
+            deep_dive_score, confidence, memo_json, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(paper_id, run_id) DO UPDATE SET
+            id = excluded.id,
+            dossier_id = excluded.dossier_id,
+            provider = excluded.provider,
+            decision = excluded.decision,
+            deep_dive_score = excluded.deep_dive_score,
+            confidence = excluded.confidence,
+            memo_json = excluded.memo_json,
+            status = excluded.status,
+            updated_at = CURRENT_TIMESTAMP
+        """,
+        (
+            decision_id,
+            paper_id,
+            run_id,
+            dossier_id,
+            provider,
+            decision,
+            deep_dive_score,
+            confidence,
+            json.dumps(memo_json, sort_keys=True),
+            status,
+        ),
+    )
+
+
+def insert_review_event(
+    conn: sqlite3.Connection,
+    *,
+    paper_id: str | None,
+    run_id: str | None,
+    dossier_id: str | None,
+    status: str,
+    message: str,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO review_events (paper_id, run_id, dossier_id, status, message)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (paper_id, run_id, dossier_id, status, message),
     )

@@ -119,3 +119,35 @@ def test_cli_extract_explicit_document(tmp_path) -> None:
         assert conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0] == 1
         assert conn.execute("SELECT COUNT(*) FROM document_pages").fetchone()[0] == 2
         assert conn.execute("SELECT COUNT(*) FROM evidence_items").fetchone()[0] >= 4
+        run_id = conn.execute("SELECT run_id FROM run_manifests LIMIT 1").fetchone()[0]
+
+    assert (
+        main(
+            [
+                "--config",
+                config_path,
+                "--db",
+                str(db_path),
+                "review",
+                "--run-id",
+                run_id,
+                "--paper-id",
+                "paper-1",
+            ]
+        )
+        == 0
+    )
+
+    with connect(db_path) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM review_dossiers").fetchone()[0] == 1
+        assert conn.execute("SELECT COUNT(*) FROM reviewer_reports").fetchone()[0] == 5
+        assert conn.execute("SELECT decision FROM editorial_decisions").fetchone()[0] == "full_deep_dive"
+        assert (
+            conn.execute(
+                """
+                SELECT COUNT(*) FROM candidate_selections
+                WHERE selection_stage = 'deep_dive_draft'
+                """
+            ).fetchone()[0]
+            == 1
+        )

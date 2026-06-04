@@ -49,15 +49,12 @@ OPENAI_API_KEY=...
 
 ## Phase 1 CLI
 
-The new package skeleton exposes an `ets4` command after installation:
+The new package skeleton exposes an `ets4` command after installation.
+Initialize the database and create a manifest first:
 
 ```bash
 ets4 init-db
 ets4 manifest --issue-date 2026-06-08
-ets4 collect --dry-run --issue-date 2026-06-08
-ets4 triage --issue-date 2026-06-08
-ets4 select --issue-date 2026-06-08
-ets4 extract --issue-date 2026-06-08
 ```
 
 `manifest` prints a `run_id`. Later commands can continue the same auditable
@@ -68,6 +65,7 @@ ets4 collect --dry-run --run-id run-example123
 ets4 triage --run-id run-example123
 ets4 select --run-id run-example123
 ets4 extract --run-id run-example123
+ets4 review --run-id run-example123
 ```
 
 The default configuration is `config/feeds.example.toml`. Copy it to
@@ -86,4 +84,14 @@ explicit paper and document:
 
 ```bash
 ets4 extract --paper-id paper-1 --source path/to/paper.pdf
+```
+
+`review` builds an evidence dossier from extracted evidence items, runs
+independent fake reviewer reports for relevance, methods, evidence,
+practitioner value, and transferability, then stores a handling-editor decision
+memo. It also writes budgeted `deep_dive_draft` and `short_mention` selections
+for human override before export. For one paper:
+
+```bash
+ets4 review --run-id run-example123 --paper-id paper-1
 ```

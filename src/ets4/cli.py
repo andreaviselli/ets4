@@ -9,7 +9,8 @@ from .config import load_config
 from .documents import process_document_for_paper
 from .manifest import create_manifest
 from .models import get_model_provider
-from .selection import select_full_review_candidates
+from .review.workflow import run_panel_review_for_paper, selected_review_targets
+from .selection import select_full_review_candidates, select_publication_candidates
 from .store.db import (
     connect,
     init_db,
@@ -68,7 +69,12 @@ def build_parser() -> argparse.ArgumentParser:
     extract_parser.add_argument("--source", help="Document URL or local path.")
     extract_parser.set_defaults(func=cmd_extract)
 
-    review_parser = subparsers.add_parser("review", help="Placeholder for full panel review.")
+    review_parser = subparsers.add_parser(
+        "review",
+        help="Run evidence-grounded independent reviewer reports and handling-editor memo.",
+    )
+    _add_manifest_args(review_parser)
+    review_parser.add_argument("--paper-id", help="Review one paper instead of all selected papers.")
     review_parser.set_defaults(func=cmd_review)
 
     evaluate_parser = subparsers.add_parser("evaluate", help="Placeholder for evaluation harness.")
@@ -268,8 +274,41 @@ def cmd_extract(args: argparse.Namespace) -> int:
 
 
 def cmd_review(args: argparse.Namespace) -> int:
-    print("Full panel review is not implemented yet. Next phase: evidence dossier + reviewers.")
-    return 0
+    config = load_config(args.config)
+    provider = get_model_provider(config.model_policy.provider)
+    reviewed = 0
+    errors = 0
+    with connect(args.db) as conn:
+        init_db(conn)
+        run_id = _ensure_run_manifest(conn, config, args)
+        targets = selected_review_targets(conn, run_id=run_id, paper_id=args.paper_id)
+        for paper_id in targets:
+            result = run_panel_review_for_paper(
+                conn,
+                paper_id=paper_id,
+                run_id=run_id,
+                provider=provider,
+            )
+            reviewed += 1
+            if result.status != "ok":
+                errors += 1
+            decision = result.decision or "none"
+            score = "n/a" if result.deep_dive_score is None else f"{result.deep_dive_score:.3f}"
+            print(
+                f"{paper_id}: {result.status}; reviewers={result.reviewer_count}; "
+                f"decision={decision}; deep_dive_score={score}"
+            )
+        publication_selection = select_publication_candidates(conn, run_id=run_id, config=config)
+    print(f"Run manifest: {run_id}")
+    print(f"Panel-reviewed papers: {reviewed}")
+    print(
+        "Selected for deep-dive draft: "
+        f"{publication_selection.deep_dive_selected_count}/"
+        f"{publication_selection.candidate_count} reviewed candidates"
+    )
+    print(f"Selected for short mention: {publication_selection.short_mention_selected_count}")
+    print(f"Review errors: {errors}")
+    return 1 if errors else 0
 
 
 def cmd_evaluate(args: argparse.Namespace) -> int:

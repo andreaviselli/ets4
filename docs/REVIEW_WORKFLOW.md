@@ -275,6 +275,15 @@ Each reviewer must return structured JSON and cite evidence item ids. Reviewer
 reports should be generated independently before any synthesis step. The system
 should preserve minority reports rather than averaging them away.
 
+Implementation note:
+
+- ETS4 stores evidence dossiers in `review_dossiers`.
+- ETS4 stores independent specialist reports in `reviewer_reports`.
+- ETS4 stores handling-editor reconciliation memos in `editorial_decisions`.
+- ETS4 stores post-review `deep_dive_draft` and `short_mention` rankings in
+  `candidate_selections`.
+- `review_events` records review failures and completed panel decisions.
+
 ### Gate 6: Panel Reconciliation
 
 Question: do the reviewers agree enough to make an editorial decision?
