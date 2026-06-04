@@ -9,6 +9,8 @@ from .collect import collect_rss_source
 from .config import load_config
 from .documents import process_document_for_paper
 from .evaluate import evaluate_run
+from .export import export_run
+from .export.writer import ExportWriteError
 from .manifest import create_manifest
 from .models import get_model_provider
 from .review.workflow import run_panel_review_for_paper, selected_review_targets
@@ -102,7 +104,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     evaluate_parser.set_defaults(func=cmd_evaluate)
 
-    export_parser = subparsers.add_parser("export", help="Placeholder for draft export.")
+    export_parser = subparsers.add_parser(
+        "export",
+        help="Export draft Markdown and internal notes for human review.",
+    )
+    _add_manifest_args(export_parser)
+    export_parser.add_argument(
+        "--output-dir",
+        default="exports",
+        help="Directory where generated export artifacts are written.",
+    )
+    export_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing human-edited export files.",
+    )
     export_parser.set_defaults(func=cmd_export)
     return parser
 
@@ -381,7 +397,26 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
 
 
 def cmd_export(args: argparse.Namespace) -> int:
-    print("Draft export is not implemented yet. Next phase: Markdown + internal notes.")
+    with connect(args.db) as conn:
+        init_db(conn)
+        if not args.run_id:
+            raise SystemExit("export requires --run-id for a reviewed run")
+        if not run_exists(conn, args.run_id):
+            raise SystemExit(f"Run manifest not found: {args.run_id}")
+        try:
+            result = export_run(
+                conn,
+                run_id=args.run_id,
+                output_dir=args.output_dir,
+                force=args.force,
+            )
+        except ExportWriteError as exc:
+            raise SystemExit(str(exc)) from exc
+    print(f"Run manifest: {result.run_id}")
+    print(f"Export directory: {result.output_dir}")
+    print(f"Selected records exported: {result.selected_count}")
+    for artifact in result.artifacts:
+        print(f"{artifact.artifact_type}: {artifact.path}")
     return 0
 
 

@@ -7,7 +7,7 @@ from typing import Any
 
 from ets4.identity import canonicalize_url, normalize_title, title_similarity
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 
 def connect(path: str | Path) -> sqlite3.Connection:
@@ -251,6 +251,18 @@ def init_db(conn: sqlite3.Connection) -> None:
             item_json TEXT NOT NULL,
             status TEXT NOT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS export_artifacts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id TEXT NOT NULL REFERENCES run_manifests(run_id),
+            artifact_type TEXT NOT NULL,
+            path TEXT NOT NULL,
+            content_sha256 TEXT NOT NULL,
+            status TEXT NOT NULL,
+            message TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(run_id, artifact_type, path)
         );
         """
     )
@@ -759,4 +771,29 @@ def insert_evaluation_item(
             json.dumps(item_json, sort_keys=True),
             status,
         ),
+    )
+
+
+def upsert_export_artifact(
+    conn: sqlite3.Connection,
+    *,
+    run_id: str,
+    artifact_type: str,
+    path: str,
+    content_sha256: str,
+    status: str,
+    message: str | None = None,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO export_artifacts (
+            run_id, artifact_type, path, content_sha256, status, message
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(run_id, artifact_type, path) DO UPDATE SET
+            content_sha256 = excluded.content_sha256,
+            status = excluded.status,
+            message = excluded.message,
+            created_at = CURRENT_TIMESTAMP
+        """,
+        (run_id, artifact_type, path, content_sha256, status, message),
     )

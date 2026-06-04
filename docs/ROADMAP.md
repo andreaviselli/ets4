@@ -139,6 +139,18 @@ Exit criteria:
 
 Goal: produce publication-ready drafts without bypassing human review.
 
+Initial implementation status:
+
+- `ets4 export` writes an issue-level draft Markdown file and companion internal
+  notes under `exports/{issue_id}/`.
+- Public Markdown includes site-style front matter with `draft: true`.
+- Internal notes include review metadata, panel summaries, open human-editor
+  questions, reviewer reports, claim ledger, and extracted evidence.
+- Generated artifacts are recorded in SQLite.
+- Exports include an ETS4 checksum marker. Reruns overwrite unedited generated
+  files but refuse to overwrite human-edited files unless `--force` is passed.
+- Export to an external publishing repository remains a later integration step.
+
 - Export Markdown with site-compatible front matter.
 - Export companion internal notes.
 - Keep `draft: true` by default.

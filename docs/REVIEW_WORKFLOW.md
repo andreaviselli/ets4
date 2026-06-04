@@ -343,6 +343,9 @@ Gate rule:
   a claim-ledger entry.
 - The draft must not hide major reviewer disagreement.
 - `draft: true` is mandatory for exported pages.
+- Exported files must retain an ETS4 generation checksum. A rerun may overwrite
+  unedited generated files, but must refuse to overwrite human-edited files
+  unless the editor passes an explicit force option.
 
 The copy editor writes for the target audience but must not add claims absent
 from the review record.
