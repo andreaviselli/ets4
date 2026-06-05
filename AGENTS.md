@@ -19,13 +19,14 @@ handoff docs.
 
 ## Current Project Posture
 
-ETS4 has completed the seven implementation phases and is now in pilot
-validation. It is not production-ready. The next major work is creating and
-evaluating the first accepted human benchmark from real pilot outputs.
+Read `docs/ETS4_STATE.md` for the current milestone, latest run state, known
+gaps, and next recommended task. Treat that file as the mutable project
+handoff; treat this file as durable operating policy.
 
-Do not add a real model provider, website integration, or autonomous publication
-until the benchmark gate in `docs/PILOT_VALIDATION.md` is satisfied or the human
-editor explicitly changes the plan.
+Follow the current milestone unless the human editor explicitly changes
+direction. When direction changes, update `docs/ETS4_STATE.md` and add a
+decision-log entry if the change affects architecture, editorial policy, model
+selection, evaluation gates, or publication workflow.
 
 ## Non-Negotiable Constraints
 
@@ -38,8 +39,11 @@ editor explicitly changes the plan.
   `label_status: "accepted"`.
 - Do not publish or push generated website content without explicit human
   approval.
-- Keep the fake provider as the deterministic baseline until a human benchmark
-  exists.
+- Keep deterministic baselines available when comparing model or workflow
+  changes.
+- Do not adopt real model providers, website integration, or publication
+  automation without either satisfying the relevant evaluation/publication gate
+  or recording explicit human approval in the decision log.
 
 ## Implementation Standards
 
