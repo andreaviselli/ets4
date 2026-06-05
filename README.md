@@ -67,6 +67,7 @@ ets4 triage --run-id run-example123
 ets4 select --run-id run-example123
 ets4 extract --run-id run-example123
 ets4 review --run-id run-example123
+ets4 benchmark-template --run-id run-example123
 ets4 evaluate --run-id run-example123 --labels path/to/benchmark.json
 ets4 export --run-id run-example123
 ets4 archive --run-id run-example123
@@ -100,9 +101,14 @@ for human override before export. For one paper:
 ets4 review --run-id run-example123 --paper-id paper-1
 ```
 
-`evaluate` compares a completed run against a labeled benchmark JSON file,
-stores aggregate and per-paper evaluation records in SQLite, and reports core
-triage, evidence, review, and selection metrics. The test fixture at
+`benchmark-template` creates a human-labeling JSON template from a completed
+run. By default it writes to `exports/benchmarks/{run_id}.benchmark-template.json`,
+which is ignored by Git. The template is intentionally not evaluable until the
+human editor fills the labels and sets each `label_status` to `accepted`.
+
+`evaluate` compares a completed run against an accepted labeled benchmark JSON
+file, stores aggregate and per-paper evaluation records in SQLite, and reports
+core triage, evidence, review, and selection metrics. The test fixture at
 `tests/fixtures/evaluation/benchmark.json` shows the expected label format.
 
 `export` writes an issue-level draft page and companion internal notes under

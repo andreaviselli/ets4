@@ -60,6 +60,12 @@ def load_benchmark(path: str | Path) -> Benchmark:
 
 def _load_label(raw: dict[str, Any]) -> PaperLabel:
     paper_id = str(raw["paper_id"])
+    label_status = _optional_str(raw.get("label_status"))
+    if label_status and label_status != "accepted":
+        raise ValueError(
+            f"Paper label for {paper_id} has label_status={label_status!r}; "
+            "set label_status to 'accepted' after human review before evaluation"
+        )
     relevance_label = str(raw["relevance_label"])
     if relevance_label not in VALID_RELEVANCE_LABELS:
         raise ValueError(f"Invalid relevance label for {paper_id}: {relevance_label}")

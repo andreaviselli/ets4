@@ -8,7 +8,7 @@ from pathlib import Path
 from .collect import collect_rss_source
 from .config import load_config
 from .documents import process_document_for_paper
-from .evaluate import evaluate_run
+from .evaluate import create_benchmark_template, evaluate_run
 from .export import export_run
 from .export.writer import ExportWriteError
 from .manifest import create_manifest
@@ -107,6 +107,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print the full metric JSON.",
     )
     evaluate_parser.set_defaults(func=cmd_evaluate)
+
+    benchmark_parser = subparsers.add_parser(
+        "benchmark-template",
+        help="Create a human-labeling benchmark template from a completed run.",
+    )
+    benchmark_parser.add_argument("--run-id", required=True)
+    benchmark_parser.add_argument(
+        "--output",
+        help="Path to write benchmark template JSON. Defaults to exports/benchmarks/<run-id>.json.",
+    )
+    benchmark_parser.add_argument(
+        "--limit",
+        type=int,
+        help="Maximum number of triaged papers to include.",
+    )
+    benchmark_parser.add_argument(
+        "--include-untriaged",
+        action="store_true",
+        help="Append untriaged collected papers for false-negative labeling.",
+    )
+    benchmark_parser.set_defaults(func=cmd_benchmark_template)
 
     export_parser = subparsers.add_parser(
         "export",
@@ -495,6 +516,29 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
             f"{_format_metric(review['editorial_decision_accuracy'])}"
         )
         print(f"Deep-dive selection accuracy: {_format_metric(selection['deep_dive_accuracy'])}")
+    return 0
+
+
+def cmd_benchmark_template(args: argparse.Namespace) -> int:
+    output = args.output or f"exports/benchmarks/{args.run_id}.benchmark-template.json"
+    with connect(args.db) as conn:
+        init_db(conn)
+        if not run_exists(conn, args.run_id):
+            raise SystemExit(f"Run manifest not found: {args.run_id}")
+        try:
+            result = create_benchmark_template(
+                conn,
+                run_id=args.run_id,
+                output_path=output,
+                limit=args.limit,
+                include_untriaged=args.include_untriaged,
+            )
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+    print(f"Run manifest: {result.run_id}")
+    print(f"Benchmark template: {result.path}")
+    print(f"Papers: {result.paper_count}")
+    print(f"Accepted labels: {result.accepted_count}")
     return 0
 
 

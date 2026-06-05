@@ -42,6 +42,18 @@ ETS4 currently supports JSON benchmark files with this shape:
 }
 ```
 
+To create the first editable benchmark from a completed pilot run:
+
+```bash
+ets4 benchmark-template --run-id run-example123
+```
+
+The template is written under `exports/benchmarks/` unless `--output` is
+provided. It includes paper metadata, system triage/review context, selection
+state, evidence availability, and blank human-label fields. Draft templates set
+`label_status` to `needs_human_label`; `ets4 evaluate` rejects those files until
+the human editor changes reviewed labels to `accepted`.
+
 Run evaluation with:
 
 ```bash
@@ -156,6 +168,10 @@ Prompt/model changes should be rejected if they:
 
 Gold labels should be created by human review, not by another model. Models may
 suggest labels, but the accepted benchmark should be manually inspected.
+
+Each paper label can include `label_status`. If present, it must be `accepted`
+before evaluation. This prevents draft template placeholders from being treated
+as gold labels.
 
 ## Regression Artifacts
 

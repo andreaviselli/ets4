@@ -71,6 +71,18 @@ questions.
 The first real benchmark should be manually labeled. Models may suggest labels,
 but accepted labels must come from human editorial review.
 
+Create the editable benchmark template from a completed pilot run:
+
+```bash
+ets4 benchmark-template --run-id run-example123
+```
+
+The command writes an ignored draft JSON file under `exports/benchmarks/` by
+default. Each paper starts with `label_status: "needs_human_label"` and blank
+gold-label fields. The human editor should inspect the exported issue,
+internal notes, source paper, and evidence context, then set reviewed labels to
+`accepted`. ETS4 refuses to evaluate unaccepted draft labels.
+
 Minimum initial target:
 
 - 100 triage examples

@@ -1,9 +1,10 @@
+import json
 from datetime import date
 
 from ets4.cli import main
 from ets4.config import load_config
 from ets4.documents import process_document_for_paper
-from ets4.evaluate import evaluate_run, load_benchmark
+from ets4.evaluate import create_benchmark_template, evaluate_run, load_benchmark
 from ets4.manifest import create_manifest
 from ets4.models import FakeModelProvider
 from ets4.review import run_panel_review_for_paper
@@ -64,6 +65,56 @@ def test_cli_evaluate_completed_run(tmp_path) -> None:
         assert conn.execute("SELECT benchmark_version FROM evaluation_runs").fetchone()[0] == (
             "phase5-fixture-v1"
         )
+
+
+def test_create_benchmark_template_requires_human_acceptance(tmp_path) -> None:
+    db_path = tmp_path / "ets4.sqlite"
+    output_path = tmp_path / "benchmark-template.json"
+    run_id = _create_evaluable_run(db_path)
+
+    with connect(db_path) as conn:
+        result = create_benchmark_template(conn, run_id=run_id, output_path=output_path)
+
+    assert result.paper_count == 2
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["source_run_id"] == run_id
+    assert payload["papers"][0]["label_status"] == "needs_human_label"
+    assert payload["papers"][0]["system_context"]["selection"]
+
+    try:
+        load_benchmark(output_path)
+    except ValueError as exc:
+        assert "set label_status to 'accepted'" in str(exc)
+    else:
+        raise AssertionError("draft benchmark template should not load as accepted labels")
+
+
+def test_cli_benchmark_template_writes_editable_json(tmp_path) -> None:
+    db_path = tmp_path / "ets4.sqlite"
+    output_path = tmp_path / "benchmark-template.json"
+    run_id = _create_evaluable_run(db_path)
+
+    assert (
+        main(
+            [
+                "--config",
+                "config/feeds.example.toml",
+                "--db",
+                str(db_path),
+                "benchmark-template",
+                "--run-id",
+                run_id,
+                "--output",
+                str(output_path),
+            ]
+        )
+        == 0
+    )
+
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["version"] == f"{run_id}-human-v1"
+    assert len(payload["papers"]) == 2
+    assert payload["papers"][0]["relevance_label"] is None
 
 
 def _create_evaluable_run(db_path) -> str:
