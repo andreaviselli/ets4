@@ -76,7 +76,8 @@ def get_ets4(
                 found_in_feed = 0
                 for entry in feed.entries:
                     pub_date_str = getattr(entry, "published", getattr(entry, "updated", None))
-                    if not pub_date_str: continue
+                    if not pub_date_str:
+                        continue
                     try:
                         pub_date = dateparser.parse(pub_date_str)
                     except dateparser.ParserError:
@@ -85,7 +86,8 @@ def get_ets4(
                     if pub_date.tzinfo is None:
                         pub_date = pub_date.replace(tzinfo=datetime.timezone.utc)
                     
-                    if pub_date < cutoff_date: continue
+                    if pub_date < cutoff_date:
+                        continue
                     
                     summary = getattr(entry, "summary", "")
                     if "<" in summary and ">" in summary:
