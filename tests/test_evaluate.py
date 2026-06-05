@@ -4,7 +4,13 @@ from datetime import date
 from ets4.cli import main
 from ets4.config import load_config
 from ets4.documents import process_document_for_paper
-from ets4.evaluate import create_benchmark_template, evaluate_run, load_benchmark
+from ets4.evaluate import (
+    create_benchmark_subset,
+    create_benchmark_template,
+    evaluate_run,
+    load_benchmark,
+    validate_benchmark_file,
+)
 from ets4.manifest import create_manifest
 from ets4.models import FakeModelProvider
 from ets4.review import run_panel_review_for_paper
@@ -89,6 +95,46 @@ def test_create_benchmark_template_requires_human_acceptance(tmp_path) -> None:
         raise AssertionError("draft benchmark template should not load as accepted labels")
 
 
+def test_validate_benchmark_template_reports_draft_incomplete_labels(tmp_path) -> None:
+    db_path = tmp_path / "ets4.sqlite"
+    output_path = tmp_path / "benchmark-template.json"
+    run_id = _create_evaluable_run(db_path)
+
+    with connect(db_path) as conn:
+        create_benchmark_template(conn, run_id=run_id, output_path=output_path)
+
+    result = validate_benchmark_file(output_path)
+
+    assert result.paper_count == 2
+    assert result.accepted_count == 0
+    assert result.not_accepted_count == 2
+    assert result.incomplete_count == 2
+    assert result.error_count == 0
+    assert result.ready_for_evaluation is False
+    assert result.paper_statuses[0].label_status == "needs_human_label"
+    assert "relevance_label" in result.paper_statuses[0].missing_fields
+
+
+def test_create_benchmark_subset_preserves_draft_labels(tmp_path) -> None:
+    db_path = tmp_path / "ets4.sqlite"
+    template_path = tmp_path / "benchmark-template.json"
+    subset_path = tmp_path / "benchmark-subset.json"
+    run_id = _create_evaluable_run(db_path)
+
+    with connect(db_path) as conn:
+        create_benchmark_template(conn, run_id=run_id, output_path=template_path)
+
+    result = create_benchmark_subset(template_path, subset_path, size=1)
+
+    assert result.paper_count == 1
+    payload = json.loads(subset_path.read_text(encoding="utf-8"))
+    assert payload["version"] == f"{run_id}-human-v1-subset"
+    assert payload["labeling_status"] == "draft_subset"
+    assert len(payload["papers"]) == 1
+    assert payload["papers"][0]["label_status"] == "needs_human_label"
+    assert payload["papers"][0]["relevance_label"] is None
+
+
 def test_cli_benchmark_template_writes_editable_json(tmp_path) -> None:
     db_path = tmp_path / "ets4.sqlite"
     output_path = tmp_path / "benchmark-template.json"
@@ -115,6 +161,39 @@ def test_cli_benchmark_template_writes_editable_json(tmp_path) -> None:
     assert payload["version"] == f"{run_id}-human-v1"
     assert len(payload["papers"]) == 2
     assert payload["papers"][0]["relevance_label"] is None
+
+
+def test_cli_benchmark_status_writes_subset(tmp_path) -> None:
+    db_path = tmp_path / "ets4.sqlite"
+    template_path = tmp_path / "benchmark-template.json"
+    subset_path = tmp_path / "benchmark-subset.json"
+    run_id = _create_evaluable_run(db_path)
+
+    with connect(db_path) as conn:
+        create_benchmark_template(conn, run_id=run_id, output_path=template_path)
+
+    assert (
+        main(
+            [
+                "--config",
+                "config/feeds.example.toml",
+                "--db",
+                str(db_path),
+                "benchmark-status",
+                "--labels",
+                str(template_path),
+                "--subset-output",
+                str(subset_path),
+                "--subset-size",
+                "1",
+            ]
+        )
+        == 0
+    )
+
+    payload = json.loads(subset_path.read_text(encoding="utf-8"))
+    assert len(payload["papers"]) == 1
+    assert payload["papers"][0]["label_status"] == "needs_human_label"
 
 
 def _create_evaluable_run(db_path) -> str:

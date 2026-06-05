@@ -33,6 +33,9 @@ benchmark expansion, or website integration.
 - Archive bundles and run events are implemented for reproducibility.
 - `ets4 benchmark-template` creates human-editable benchmark JSON from a
   completed run.
+- `ets4 benchmark-status` validates benchmark JSON, reports draft or incomplete
+  labels, and can write a smaller copied subset for human editing without
+  accepting or inventing labels.
 - `ets4 evaluate` rejects draft benchmark labels unless each label is marked
   `label_status: "accepted"`.
 
@@ -62,11 +65,13 @@ block benchmark labeling unless that source is editorially important.
 
 ## Next Recommended Task
 
-Create the first accepted human benchmark from the generated template.
+Create the first accepted human benchmark subset from the generated template.
 
 Suggested scope:
 
-- label a small initial subset before trying to label all 21 papers
+- run `ets4 benchmark-status` on
+  `exports/benchmarks/run-960b75015cc3.benchmark-template.json`
+- create a small copied subset file before trying to label all 21 papers
 - include at least one deep-dive candidate, one short mention, one rejected or
   weak candidate, and the blocked-full-text failure if useful
 - fill `relevance_label`, expected triage/editorial decisions, deep-dive and
@@ -79,6 +84,10 @@ Suggested command pattern:
 
 ```bash
 ets4 benchmark-template --run-id run-960b75015cc3
+ets4 benchmark-status \
+  --labels exports/benchmarks/run-960b75015cc3.benchmark-template.json \
+  --subset-output exports/benchmarks/run-960b75015cc3.initial-subset.json \
+  --subset-size 6
 ets4 evaluate --run-id run-960b75015cc3 --labels path/to/accepted-benchmark.json
 ```
 
@@ -93,6 +102,7 @@ ets4 select --run-id run-example123
 ets4 extract --run-id run-example123
 ets4 review --run-id run-example123
 ets4 benchmark-template --run-id run-example123
+ets4 benchmark-status --labels path/to/benchmark.json
 ets4 evaluate --run-id run-example123 --labels path/to/benchmark.json
 ets4 export --run-id run-example123
 ets4 archive --run-id run-example123

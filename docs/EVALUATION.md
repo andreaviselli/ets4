@@ -54,6 +54,26 @@ state, evidence availability, and blank human-label fields. Draft templates set
 `label_status` to `needs_human_label`; `ets4 evaluate` rejects those files until
 the human editor changes reviewed labels to `accepted`.
 
+To inspect labeling progress without treating draft labels as gold labels:
+
+```bash
+ets4 benchmark-status --labels exports/benchmarks/run-example123.benchmark-template.json
+```
+
+The status command validates benchmark JSON, reports labels that are still draft
+or incomplete, and exits non-zero only for structural validation errors. To make
+a smaller human-editing file from a generated template:
+
+```bash
+ets4 benchmark-status \
+  --labels exports/benchmarks/run-example123.benchmark-template.json \
+  --subset-output exports/benchmarks/run-example123.initial-subset.json \
+  --subset-size 6
+```
+
+Subset files copy existing paper records and preserve draft label fields. They
+do not infer labels or mark labels as accepted.
+
 Run evaluation with:
 
 ```bash

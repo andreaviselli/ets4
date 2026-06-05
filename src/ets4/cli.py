@@ -8,7 +8,13 @@ from pathlib import Path
 from .collect import collect_rss_source
 from .config import load_config
 from .documents import process_document_for_paper
-from .evaluate import create_benchmark_template, evaluate_run
+from .evaluate import (
+    BenchmarkValidationResult,
+    create_benchmark_subset,
+    create_benchmark_template,
+    evaluate_run,
+    validate_benchmark_file,
+)
 from .export import export_run
 from .export.writer import ExportWriteError
 from .manifest import create_manifest
@@ -128,6 +134,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="Append untriaged collected papers for false-negative labeling.",
     )
     benchmark_parser.set_defaults(func=cmd_benchmark_template)
+
+    benchmark_status_parser = subparsers.add_parser(
+        "benchmark-status",
+        help="Validate benchmark JSON and report draft or incomplete labels.",
+    )
+    benchmark_status_parser.add_argument(
+        "--labels",
+        required=True,
+        help="Path to benchmark label or template JSON.",
+    )
+    benchmark_status_parser.add_argument(
+        "--subset-output",
+        help="Optional path to write a smaller copied subset for human editing.",
+    )
+    benchmark_status_parser.add_argument(
+        "--subset-size",
+        type=int,
+        default=6,
+        help="Number of papers to include when --subset-output is used.",
+    )
+    benchmark_status_parser.add_argument(
+        "--paper-id",
+        action="append",
+        default=[],
+        help="Paper id to force into the subset. May be passed more than once.",
+    )
+    benchmark_status_parser.set_defaults(func=cmd_benchmark_status)
 
     export_parser = subparsers.add_parser(
         "export",
@@ -542,6 +575,29 @@ def cmd_benchmark_template(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_benchmark_status(args: argparse.Namespace) -> int:
+    try:
+        result = validate_benchmark_file(args.labels)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"Could not read benchmark JSON: {exc}") from exc
+
+    _print_benchmark_validation(result)
+    if args.subset_output:
+        try:
+            subset = create_benchmark_subset(
+                args.labels,
+                args.subset_output,
+                size=args.subset_size,
+                paper_ids=tuple(args.paper_id),
+            )
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+        print(f"Subset written: {subset.path}")
+        print(f"Subset papers: {subset.paper_count}")
+        print(f"Subset paper ids: {', '.join(subset.paper_ids)}")
+    return 1 if result.error_count else 0
+
+
 def cmd_export(args: argparse.Namespace) -> int:
     with connect(args.db) as conn:
         init_db(conn)
@@ -942,6 +998,39 @@ def _format_metric(value: float | None) -> str:
     if value is None:
         return "n/a"
     return f"{value:.3f}"
+
+
+def _print_benchmark_validation(result: BenchmarkValidationResult) -> None:
+    print(f"Benchmark: {result.version}")
+    print(f"Path: {result.path}")
+    print(f"Papers: {result.paper_count}")
+    print(f"Accepted labels: {result.accepted_count}")
+    print(f"Draft/not accepted labels: {result.not_accepted_count}")
+    print(f"Incomplete labels: {result.incomplete_count}")
+    print(f"Errors: {result.error_count}")
+    print(f"Ready for ets4 evaluate: {'yes' if result.ready_for_evaluation else 'no'}")
+    for error in result.top_level_errors:
+        print(f"Top-level error: {error}")
+    if result.duplicate_paper_ids:
+        print(f"Duplicate paper ids: {', '.join(result.duplicate_paper_ids)}")
+
+    problem_statuses = [
+        status
+        for status in result.paper_statuses
+        if not status.is_accepted or status.is_incomplete
+    ]
+    if not problem_statuses:
+        return
+    print("Draft or incomplete labels:")
+    for status in problem_statuses:
+        details = []
+        if status.label_status not in {None, "accepted"}:
+            details.append(f"status={status.label_status or 'missing'}")
+        if status.missing_fields:
+            details.append(f"missing={','.join(status.missing_fields)}")
+        if status.invalid_fields:
+            details.append(f"invalid={','.join(status.invalid_fields)}")
+        print(f"- {status.paper_id}: {'; '.join(details)}")
 
 
 if __name__ == "__main__":

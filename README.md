@@ -77,6 +77,7 @@ ets4 select --run-id run-example123
 ets4 extract --run-id run-example123
 ets4 review --run-id run-example123
 ets4 benchmark-template --run-id run-example123
+ets4 benchmark-status --labels path/to/benchmark.json
 ets4 evaluate --run-id run-example123 --labels path/to/benchmark.json
 ets4 export --run-id run-example123
 ets4 archive --run-id run-example123
@@ -114,6 +115,10 @@ ets4 review --run-id run-example123 --paper-id paper-1
 run. By default it writes to `exports/benchmarks/{run_id}.benchmark-template.json`,
 which is ignored by Git. The template is intentionally not evaluable until the
 human editor fills the labels and sets each `label_status` to `accepted`.
+
+`benchmark-status` validates benchmark JSON, reports labels that are still draft
+or incomplete, and can write a smaller copied subset for human editing. It never
+fills labels or marks labels accepted.
 
 `evaluate` compares a completed run against an accepted labeled benchmark JSON
 file, stores aggregate and per-paper evaluation records in SQLite, and reports
