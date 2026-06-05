@@ -30,6 +30,7 @@ See:
 - [docs/REVIEW_WORKFLOW.md](docs/REVIEW_WORKFLOW.md)
 - [docs/EVALUATION.md](docs/EVALUATION.md)
 - [docs/ROADMAP.md](docs/ROADMAP.md)
+- [docs/PILOT_VALIDATION.md](docs/PILOT_VALIDATION.md)
 
 ## Local Setup
 

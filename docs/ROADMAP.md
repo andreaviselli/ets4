@@ -192,3 +192,14 @@ Exit criteria:
 - A monthly issue can be reproduced from stored data.
 - Review artifacts are auditable.
 - Failures are explicit and recoverable.
+
+## Post-Roadmap Validation
+
+The roadmap is complete when Phase 7 has a working implementation, but ETS4
+should not be treated as production-ready until it passes pilot validation.
+
+The next milestone is documented in `docs/PILOT_VALIDATION.md`. Its purpose is
+to run ETS4 on real sources, create the first human-labeled benchmark, evaluate
+the fake-provider baseline, and decide whether to add a real model provider,
+improve retrieval, expand benchmark coverage, or integrate with the publishing
+repository.
