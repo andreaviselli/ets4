@@ -14,6 +14,7 @@ from ets4.store.db import (
 
 from .evidence import extract_evidence_candidates
 from .extraction import DocumentExtractionError, extract_pages
+from .quality import assess_extracted_pages
 from .retrieval import DocumentRetrievalError, retrieve_document
 
 
@@ -76,6 +77,42 @@ def process_document_for_paper(
         return DocumentProcessResult(document_id=document_id, status="error", message=str(exc))
 
     try:
+        evidence_items = extract_evidence_candidates(pages, document_id=document_id)
+        quality = assess_extracted_pages(
+            pages,
+            evidence_kinds={item.kind for item in evidence_items},
+        )
+        if not quality.ok:
+            conn.execute("DELETE FROM evidence_items WHERE document_id = ?", (document_id,))
+            conn.execute("DELETE FROM document_pages WHERE document_id = ?", (document_id,))
+            insert_document(
+                conn,
+                document_id=document_id,
+                paper_id=paper_id,
+                run_id=run_id,
+                source_uri=retrieved.source_uri,
+                content_type=retrieved.content_type,
+                content_sha256=content_hash,
+                page_count=len(pages),
+                status="error",
+                error_message=quality.reason,
+            )
+            insert_document_event(
+                conn,
+                paper_id=paper_id,
+                document_id=document_id,
+                run_id=run_id,
+                status="error",
+                message=quality.reason,
+            )
+            conn.commit()
+            return DocumentProcessResult(
+                document_id=document_id,
+                status="error",
+                page_count=len(pages),
+                evidence_count=len(evidence_items),
+                message=quality.reason,
+            )
         insert_document(
             conn,
             document_id=document_id,
@@ -96,7 +133,6 @@ def process_document_for_paper(
                 page_number=page.page_number,
                 text=page.text,
             )
-        evidence_items = extract_evidence_candidates(pages, document_id=document_id)
         for item in evidence_items:
             insert_evidence_item(
                 conn,
