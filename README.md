@@ -9,10 +9,16 @@ publishing repository.
 
 The repository currently contains:
 
-- `src/ets4/legacy.py`: the legacy prototype for RSS collection, LLM scoring, and Markdown export.
+- `src/ets4/`: the active ETS4 package and CLI implementation.
 - `docs/`: the target architecture, roadmap, review workflow, and evaluation design.
 - `config/feeds.example.toml`: a starter source configuration.
 - `data/` and `exports/`: ignored runtime working directories.
+
+For project handoff and future agent work, start with:
+
+- [docs/ETS4_STATE.md](docs/ETS4_STATE.md): current status, latest pilot state, known gaps, and next task.
+- [docs/ETS4_DECISION_LOG.md](docs/ETS4_DECISION_LOG.md): durable architectural and editorial decisions.
+- [AGENTS.md](AGENTS.md): operating rules for AI agents working on ETS4.
 
 ## Repository Direction
 
@@ -27,10 +33,13 @@ The target is a reproducible editorial system with these properties:
 See:
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- [docs/ETS4_STATE.md](docs/ETS4_STATE.md)
+- [docs/ETS4_DECISION_LOG.md](docs/ETS4_DECISION_LOG.md)
 - [docs/REVIEW_WORKFLOW.md](docs/REVIEW_WORKFLOW.md)
 - [docs/EVALUATION.md](docs/EVALUATION.md)
 - [docs/ROADMAP.md](docs/ROADMAP.md)
 - [docs/PILOT_VALIDATION.md](docs/PILOT_VALIDATION.md)
+- [AGENTS.md](AGENTS.md)
 
 ## Local Setup
 
