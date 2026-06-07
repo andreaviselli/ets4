@@ -164,6 +164,11 @@ Recommended design:
 
 - Split accepted labels into agent-visible casebook examples and private
   holdout evaluation examples.
+- For pilot validation, prefer a stable holdout: build a fixed benchmark from
+  early accepted labels and reuse it while comparing retrieval, prompt, and
+  provider changes.
+- Defer the choice between a stable holdout and a rolling holdout strategy until
+  ETS4 has more repeated runs and source diversity.
 - Do not let agents see the same examples used for holdout evaluation.
 - Retrieve only a small number of similar cases, with their human labels,
   rationale, and relevant metadata.

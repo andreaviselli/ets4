@@ -473,6 +473,11 @@ papers more consistently, but it should not contaminate holdout metrics. If
 casebook retrieval is added, each run should record which labeled examples were
 shown to the agent.
 
+For the pilot, prefer a stable holdout benchmark so ETS4 changes can be compared
+against a fixed reference. A rolling holdout, where old evaluated labels are
+promoted into the casebook and new labels become the next private holdout, may
+be useful later after multiple runs and broader source coverage.
+
 ## Regression Artifacts
 
 Each evaluation run should store:
