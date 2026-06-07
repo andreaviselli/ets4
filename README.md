@@ -85,6 +85,10 @@ ets4 archive --run-id run-example123
 
 The default configuration is `config/feeds.example.toml`. Copy it to
 `config/feeds.toml` for local changes; the local config file is ignored by Git.
+Each `[[sources]]` entry controls one feed. For RSS sources, `lookback_days`
+sets how far back ETS4 looks from collection time when filtering feed entries.
+The example configuration currently uses 30 days for each starter source. Add
+or remove source entries in `config/feeds.toml` to change pilot coverage.
 
 The default model provider is `fake`, which is deterministic and suitable for
 offline development and tests.

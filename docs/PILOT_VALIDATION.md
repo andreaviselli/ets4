@@ -66,6 +66,13 @@ The human editor should record notes about false positives, false negatives,
 weak evidence, missing evidence, misleading draft claims, and useful reviewer
 questions.
 
+The initial pilot may use the starter source registry in
+`config/feeds.example.toml`, which currently contains NEP Forecasting, arXiv
+Quantitative Finance Statistical Methods, and Federal Reserve Working Papers.
+This is pilot scoping, not an architectural exclusion of other sources. For a
+serious benchmark, expand `config/feeds.toml` with additional sources and set
+each RSS source's `lookback_days` to the desired collection window.
+
 ## Benchmark Creation
 
 The first real benchmark should be manually labeled. Models may suggest labels,
