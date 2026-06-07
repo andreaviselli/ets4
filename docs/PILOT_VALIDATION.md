@@ -72,6 +72,9 @@ Quantitative Finance Statistical Methods, and Federal Reserve Working Papers.
 This is pilot scoping, not an architectural exclusion of other sources. For a
 serious benchmark, expand `config/feeds.toml` with additional sources and set
 each RSS source's `lookback_days` to the desired collection window.
+After the first benchmark workflow is validated end to end, add more RSS feeds
+so later pilot runs cover a broader source mix before treating benchmark results
+as representative.
 
 ## Benchmark Creation
 
@@ -253,5 +256,8 @@ After the pilot, choose one of these paths:
   reports are weak.
 - **Expand benchmark coverage** if the metrics are too sparse to guide model
   changes.
+- **Expand RSS source coverage** after the first benchmark workflow works, so
+  future labels include more journals, institutions, working-paper feeds, and
+  adjacent forecasting sources.
 - **Integrate with the website repository** if review quality is acceptable and
   the human editor wants a draft pull-request workflow.
