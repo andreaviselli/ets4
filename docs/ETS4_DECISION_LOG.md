@@ -132,3 +132,60 @@ with draft artifacts or draft pull requests only.
 Reversal condition: Do not reverse for public publication. Automation can be
 expanded for scheduling and draft preparation, but final publication should
 remain manually approved.
+
+## 2026-06-05: Treat Human Benchmark Labels as Calibration, Not Routine Production Work
+
+Decision: Human benchmark labeling is required for validation and regression
+testing, but it is not the intended per-issue production scoring workflow.
+
+Context: The legacy prototype expected LLM agents to score and evaluate papers
+directly. The current architecture keeps automated triage, review, scoring, and
+ranking, but adds human-owned benchmark labels so those automated judgments can
+be measured against an external editorial reference.
+
+Alternatives considered:
+
+- Require the human editor to label every production issue as benchmark data.
+- Let agents create accepted benchmark labels from their own judgments.
+- Use agents for routine scoring while keeping human labels for calibration,
+  regression testing, and provider or workflow comparisons.
+
+Consequence: In production, agents may score, triage, review, rank, and draft
+papers, subject to human editorial approval before publication. Human benchmark
+labels should be created periodically or when quality risk changes, such as
+after prompt changes, provider changes, source-mix changes, observed drift, or
+candidate workflow comparisons. Automated pipelines may run non-public stages,
+but must not mark generated labels as accepted.
+
+Reversal condition: None for accepted gold labels. The frequency and size of
+human benchmark updates can change as ETS4 matures, but accepted benchmark
+labels should remain externally human-owned.
+
+## 2026-06-07: Defer Agent-Visible Casebook Until Holdout Benchmarks Exist
+
+Decision: ETS4 may later use accepted human-labeled examples as an
+agent-visible casebook, but this should wait until there is enough labeled data
+to keep private holdout evaluation examples separate.
+
+Context: A growing benchmark can serve two purposes. It can measure ETS4 against
+human editorial judgment, and it can also provide past cases that help agents
+resolve uncertain triage or review decisions. These uses conflict if the same
+examples are both shown to agents and used as blind evaluation data.
+
+Alternatives considered:
+
+- Use all accepted labels only for evaluation.
+- Show all accepted labels to agents as examples.
+- Split accepted labels into agent-visible casebook examples and private
+  holdout examples.
+
+Consequence: The current pilot should first build the accepted benchmark and
+evaluate the baseline. Casebook retrieval should be considered only after the
+minimum benchmark targets are met: at least 100 labeled triage examples, 20
+full-review examples, hard negatives, high-value examples, and examples with
+weak or missing full text. If implemented, runs should log which prior cases
+were shown to agents.
+
+Reversal condition: If casebook retrieval creates label leakage, crowds out
+source evidence, or makes decisions harder to audit, keep accepted labels as
+evaluation-only artifacts.

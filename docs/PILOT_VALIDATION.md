@@ -137,6 +137,46 @@ The system should not progress to real-model production use if it fails on hard
 negatives, produces unsupported draft claims, hides reviewer disagreement, or
 selects papers without adequate evidence.
 
+## Later Enhancement: Human-Labeled Casebook
+
+After the first accepted benchmark exists and the minimum benchmark targets are
+met, ETS4 may add a human-labeled casebook for agent-visible precedent lookup.
+This is separate from the initial validation task.
+
+The casebook would use accepted human labels as past editorial cases, similar to
+precedents. During triage or review, ETS4 could retrieve similar labeled papers
+and show those examples to the agent when a decision is uncertain. This may be
+most useful for borderline cases, papers labeled `paper_of_interest`, hard
+negatives that look superficially relevant, and transferable-method papers whose
+economic forecasting fit is ambiguous.
+
+Recommended timing:
+
+1. Create the first accepted benchmark subset.
+2. Expand coverage to at least 100 labeled triage examples, 20 full-review
+   examples, explicit hard negatives, high-value examples, and weak or missing
+   full-text examples.
+3. Evaluate the fake-provider baseline and any candidate real provider against
+   a private holdout subset.
+4. Only then consider adding casebook retrieval to triage or review prompts.
+
+Recommended design:
+
+- Split accepted labels into agent-visible casebook examples and private
+  holdout evaluation examples.
+- Do not let agents see the same examples used for holdout evaluation.
+- Retrieve only a small number of similar cases, with their human labels,
+  rationale, and relevant metadata.
+- Log which past cases were shown to each agent decision, so runs remain
+  auditable.
+- Keep `needs_human_adjudication` available. The casebook should reduce
+  avoidable inconsistency, not hide genuine uncertainty.
+
+This enhancement should be rejected or postponed if it improves apparent metric
+scores mainly by leaking evaluation labels into prompts, if retrieved cases
+crowd out source evidence, or if it makes decisions harder for the human editor
+to audit.
+
 ## Real Model Provider Gate
 
 A real provider, such as an OpenAI provider, should be added only after the
