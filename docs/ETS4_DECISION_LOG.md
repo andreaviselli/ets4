@@ -30,6 +30,35 @@ Reversal condition: A future editorial decision may create a separate curiosity
 or academic-methods product, but that should be represented as a distinct
 publication track or issue type rather than diluting the default product.
 
+## 2026-06-22: Tighten the Fake Provider Around Applied Track Fit
+
+Decision: The deterministic fake provider now treats generic financial or
+time-series method papers as borderline, watchlist, or reject unless they show
+explicit applied economic forecasting fit. Full deep-dive handling-editor
+decisions are capped when the paper lacks both an explicit forecasting signal
+and an applied economic signal.
+
+Context: The accepted pilot subset error report showed repeated overpromotion:
+the fake baseline marked financial/time-series methods and weakly applied papers
+as directly relevant deep dives when human labels expected applied notes,
+methods-watch treatment, human adjudication, or rejection.
+
+Alternatives considered:
+
+- Leave the fake provider as a loose pipeline smoke-test baseline.
+- Add a real model provider before reducing known deterministic overpromotion.
+- Tighten the fake baseline to encode the practitioner/applied product gate
+  before provider comparison.
+
+Consequence: Future fake-provider evaluations should be more conservative on
+generic finance, trading-risk, volatility, and method-only papers. Stored pilot
+metrics from earlier runs remain valid historical baselines but should not be
+treated as the current deterministic baseline until a fresh run is generated.
+
+Reversal condition: If broader accepted benchmarks show that the stricter fake
+provider suppresses high-value applied forecasting papers, loosen the term
+rules or move this logic into explicit, testable editorial rubric scoring.
+
 ## 2026-06-05: Treat Phase 7 Completion as a Validation Gate, Not Production
 
 Decision: Completing the seven implementation phases does not make ETS4

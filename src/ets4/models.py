@@ -104,17 +104,46 @@ class FakeModelProvider:
         "economic",
         "economy",
         "macro",
+        "macroeconomic",
         "inflation",
         "gdp",
-        "finance",
-        "financial",
         "energy",
         "oil",
         "gas",
         "electricity",
-        "market",
-        "asset",
         "monetary",
+        "policy",
+        "central bank",
+        "federal reserve",
+        "reserves",
+        "demand",
+        "supply",
+        "business",
+        "employment",
+        "labor",
+        "prices",
+        "scenario",
+    )
+    financial_method_terms = (
+        "asset",
+        "equity",
+        "equities",
+        "finance",
+        "financial",
+        "garch",
+        "market",
+        "portfolio",
+        "trading",
+        "value at risk",
+        "expected shortfall",
+        "volatility",
+    )
+    finance_reject_terms = (
+        "equity market",
+        "equity markets",
+        "expected shortfall",
+        "trading",
+        "value at risk",
     )
     hard_negative_terms = (
         "causal inference",
@@ -134,6 +163,8 @@ class FakeModelProvider:
         text = f"{title} {abstract} {source_name}".lower()
         has_forecasting = any(term in text for term in self.forecasting_terms)
         has_economic = any(term in text for term in self.economic_terms)
+        has_financial_method = any(term in text for term in self.financial_method_terms)
+        has_finance_reject = any(term in text for term in self.finance_reject_terms)
         has_hard_negative = any(term in text for term in self.hard_negative_terms)
 
         if has_hard_negative and not has_forecasting:
@@ -147,6 +178,20 @@ class FakeModelProvider:
                 reason="Detected a hard-negative topic without an explicit forecasting signal.",
             )
 
+        if has_finance_reject and not has_economic:
+            return TriageResult(
+                decision="reject",
+                category_hint="not_relevant",
+                forecasting_signal="explicit" if has_forecasting else "absent",
+                economic_signal="absent",
+                score=3.0,
+                confidence=0.7,
+                reason=(
+                    "Detected a finance/trading risk topic without enough applied economic "
+                    "forecasting fit for the default product."
+                ),
+            )
+
         if has_forecasting and has_economic:
             return TriageResult(
                 decision="assign_reviewers",
@@ -156,6 +201,20 @@ class FakeModelProvider:
                 score=8.0,
                 confidence=0.75,
                 reason="Detected explicit forecasting and economic signals.",
+            )
+
+        if has_forecasting and has_financial_method:
+            return TriageResult(
+                decision="borderline",
+                category_hint="paper_of_interest",
+                forecasting_signal="explicit",
+                economic_signal="implied",
+                score=5.8,
+                confidence=0.55,
+                reason=(
+                    "Detected a forecasting signal in financial/time-series methods, "
+                    "but applied economic forecasting fit is not explicit."
+                ),
             )
 
         if has_forecasting:
@@ -257,14 +316,24 @@ class FakeModelProvider:
             adjusted_score -= 0.75
         if weak_reports:
             adjusted_score -= 0.5
+        paper = dossier.get("paper", {})
+        paper_text = f"{paper.get('title', '')} {paper.get('abstract', '')}".lower()
+        has_forecasting = any(term in paper_text for term in self.forecasting_terms)
+        has_economic = any(term in paper_text for term in self.economic_terms)
+        has_financial_method = any(term in paper_text for term in self.financial_method_terms)
+        track_fit = _track_fit(
+            has_forecasting=has_forecasting,
+            has_economic=has_economic,
+            has_financial_method=has_financial_method,
+        )
 
         if disagreement >= 3.0 or len(weak_reports) >= 2:
             decision = "needs_human_adjudication"
-        elif adjusted_score >= 7.0 and evidence_count >= 5:
+        elif adjusted_score >= 7.0 and evidence_count >= 5 and track_fit == "deep_dive":
             decision = "full_deep_dive"
-        elif adjusted_score >= 5.8:
+        elif adjusted_score >= 5.8 and track_fit in {"deep_dive", "applied_note"}:
             decision = "short_mention"
-        elif adjusted_score >= 4.5:
+        elif adjusted_score >= 4.5 or track_fit == "methods_watch":
             decision = "watchlist"
         else:
             decision = "reject"
@@ -276,6 +345,10 @@ class FakeModelProvider:
             questions.append("Reviewer disagreement is material; inspect minority concerns.")
         if weak_reports:
             questions.append(f"Resolve weak reviewer reports: {', '.join(weak_reports)}.")
+        if track_fit != "deep_dive":
+            questions.append(
+                "Applied forecasting fit is limited; verify publication track before drafting."
+            )
 
         return EditorialDecisionResult(
             decision=decision,
@@ -312,6 +385,21 @@ def _review_recommendation(score: float, missing: tuple[str, ...]) -> str:
         return "support_short_mention"
     if score >= 4.5:
         return "watchlist"
+    return "reject"
+
+
+def _track_fit(
+    *,
+    has_forecasting: bool,
+    has_economic: bool,
+    has_financial_method: bool,
+) -> str:
+    if has_forecasting and has_economic:
+        return "deep_dive"
+    if has_economic:
+        return "applied_note"
+    if has_forecasting and has_financial_method:
+        return "methods_watch"
     return "reject"
 
 

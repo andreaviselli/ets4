@@ -129,7 +129,8 @@ file, stores aggregate and per-paper evaluation records in SQLite, and reports
 core triage, evidence, review, and selection metrics. The test fixture at
 `tests/fixtures/evaluation/benchmark.json` shows the expected label format.
 Add `--errors` to list per-paper mismatches between human labels and ETS4
-outputs; `--json` includes the same mismatch report in machine-readable form.
+outputs and summarize failure types; `--json` includes the same error analysis
+in machine-readable form.
 
 `export` writes an issue-level draft page and companion internal notes under
 `exports/{issue_id}/`. Exported public pages always include `draft: true`.

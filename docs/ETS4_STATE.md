@@ -28,7 +28,9 @@ expansion, or website integration.
 - Evidence quality gates reject weak extraction and HTML boilerplate before
   review.
 - The fake model provider is the deterministic baseline for triage, panel
-  review, and handling-editor decisions.
+  review, and handling-editor decisions. It now distinguishes applied economic
+  forecasting signals from generic financial/time-series methods and caps
+  full-deep-dive decisions when applied forecasting fit is limited.
 - Exports write draft Markdown and internal notes under ignored `exports/`.
 - Archive bundles and run events are implemented for reproducibility.
 - `ets4 benchmark-template` creates human-editable benchmark JSON from a
@@ -93,8 +95,8 @@ under the practitioner/applied forecasting rubric.
 - publication-track accuracy: 0.1667
 - publication-track distribution: 2 applied notes, 4 rejects
 - latest error-report verification: `ets4 evaluate --errors` produced
-  evaluation run `eval-ce07ddb02db9104a` and 23 per-paper mismatches from the
-  accepted subset in the ignored pilot SQLite database
+  evaluation run `eval-7800fac4e1262f30`, 23 per-paper mismatches, and grouped
+  failure types from the accepted subset in the ignored pilot SQLite database
 
 Interpretation: the fake-provider baseline preserves citation validity on the
 accepted subset, but it does not match human editorial labels well enough for
@@ -102,19 +104,22 @@ real use. The revised labels improve triage/category metrics, but the baseline
 still promotes too many papers into deep-dive-like treatment when the
 practitioner/applied rubric expects applied notes or rejects. Benchmark
 inspection and error reporting are now available through the `--errors`
-evaluation option, so the next pilot task can use the accepted subset's failure
-report before adding a real provider.
+evaluation option. The source code now includes a more conservative
+fake-provider baseline, but the stored pilot run has not yet been rerun with
+that updated baseline.
 
 ## Next Recommended Task
 
-Run and inspect the benchmark error report for the accepted subset, then use
-the per-paper failures to decide the next pilot investment.
+Regenerate an evaluation baseline after the fake-provider track-fit changes,
+then compare it with the stored pilot metrics before deciding whether to improve
+retrieval, expand benchmark labels, or add a real provider.
 
 Suggested scope:
 
-- run `ets4 evaluate --errors` on the accepted subset
-- identify which papers drive low triage accuracy, editorial decision accuracy,
-  publication-track accuracy, and evidence-kind coverage
+- run a fresh deterministic pilot or replay workflow using the updated fake
+  provider
+- evaluate the accepted subset with `ets4 evaluate --errors`
+- compare the grouped failure types against the stored pilot result
 - keep accepted human labels as ignored local artifacts unless a curated test
   fixture is intentionally created
 - do not add a real model provider until the failure report has been reviewed

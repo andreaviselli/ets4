@@ -561,6 +561,7 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
             f"{_format_metric(rubric.get('publication_track_accuracy'))}"
         )
         if args.errors:
+            _print_evaluation_error_summary(result.metrics["error_summary"])
             _print_evaluation_mismatches(result.mismatches)
     return 0
 
@@ -1027,8 +1028,30 @@ def _print_evaluation_mismatches(mismatches: tuple[EvaluationMismatch, ...]) -> 
             "  "
             f"{mismatch.field}: human={_format_report_value(mismatch.human_label)}; "
             f"system={_format_report_value(mismatch.system_output)}; "
+            f"type={mismatch.failure_type}; "
             f"{mismatch.reason}"
         )
+
+
+def _print_evaluation_error_summary(summary: dict[str, object]) -> None:
+    print("Error summary:")
+    print(f"- impacted papers: {summary['paper_count']}")
+    print(f"- total mismatches: {summary['mismatch_count']}")
+    by_failure_type = summary.get("by_failure_type") or {}
+    if by_failure_type:
+        print("- failure types:")
+        for name, count in by_failure_type.items():
+            print(f"  {name}: {count}")
+    missing_kinds = summary.get("missing_required_evidence_kinds") or {}
+    if missing_kinds:
+        print("- missing evidence kinds:")
+        for name, count in missing_kinds.items():
+            print(f"  {name}: {count}")
+    recommendations = summary.get("recommendations") or ()
+    if recommendations:
+        print("- recommended next actions:")
+        for recommendation in recommendations:
+            print(f"  {recommendation}")
 
 
 def _format_report_value(value: object) -> str:

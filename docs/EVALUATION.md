@@ -99,10 +99,16 @@ The error report lists each labeled paper with mismatches between human labels
 and ETS4 outputs for triage decision, category, editorial decision, deep-dive
 selection, short-mention selection, publication track, and missing required
 evidence kinds. Each mismatch includes the paper title, paper id, accepted human
-label, system output, and a concise failure reason.
+label, system output, deterministic failure type, and a concise failure reason.
+
+The same output starts with an error summary that groups mismatches by report
+field, failure type, and missing required evidence kind. It also prints short
+recommended next actions derived from the observed failure types, such as
+tightening desk screening, making publication-track gates more conservative, or
+improving evidence-kind extraction.
 
 For machine-readable inspection, `--json` includes a `mismatches` array with the
-same per-paper fields.
+same per-paper fields and an `error_summary` object with the grouped counts.
 
 ## Labeling Guide
 

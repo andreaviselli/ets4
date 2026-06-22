@@ -10,9 +10,9 @@ from ets4.store.db import insert_evaluation_item, insert_evaluation_run
 
 from .labels import Benchmark, load_benchmark
 from .metrics import aggregate_metrics, evaluate_paper
-from .report import EvaluationMismatch, evaluation_mismatches, mismatch_dicts
+from .report import EvaluationMismatch, error_summary_dict, evaluation_mismatches, mismatch_dicts
 
-EVALUATOR_VERSION = "pilot-report-v1"
+EVALUATOR_VERSION = "pilot-report-v2"
 
 
 @dataclass(frozen=True)
@@ -36,6 +36,7 @@ def evaluate_run(
     item_results = [evaluate_paper(conn, run_id=run_id, label=label) for label in benchmark.labels]
     item_tuple = tuple(item_results)
     metrics = aggregate_metrics(item_results)
+    metrics["error_summary"] = error_summary_dict(item_tuple)
     metrics["mismatches"] = mismatch_dicts(item_tuple)
     metrics["benchmark_version"] = benchmark.version
     metrics["run_id"] = run_id

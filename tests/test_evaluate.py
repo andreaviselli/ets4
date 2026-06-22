@@ -7,6 +7,7 @@ from ets4.documents import process_document_for_paper
 from ets4.evaluate import (
     create_benchmark_subset,
     create_benchmark_template,
+    error_summary_dict,
     evaluate_run,
     load_benchmark,
     validate_benchmark_file,
@@ -49,6 +50,7 @@ def test_evaluate_run_persists_metrics_and_items(tmp_path) -> None:
             "out_of_scope": 1,
             "practitioner": 1,
         }
+        assert result.metrics["error_summary"]["mismatch_count"] == 0
         assert result.metrics["mismatches"] == []
         assert conn.execute("SELECT COUNT(*) FROM evaluation_runs").fetchone()[0] == 1
         assert conn.execute("SELECT COUNT(*) FROM evaluation_items").fetchone()[0] == 2
@@ -102,6 +104,25 @@ def test_evaluate_run_reports_per_paper_mismatches(tmp_path) -> None:
     assert result.metrics["mismatches"][0]["title"] == (
         "Inflation forecasting with probabilistic models"
     )
+    assert result.metrics["mismatches"][0]["failure_type"] == "triage_overpromotion"
+    assert result.metrics["error_summary"]["by_failure_type"] == {
+        "deep_dive_overselection": 1,
+        "editorial_overpromotion": 1,
+        "evidence_kind_gap": 1,
+        "publication_track_overpromotion": 1,
+        "scope_overclassification": 1,
+        "short_mention_underselection": 1,
+        "triage_overpromotion": 1,
+    }
+    assert result.metrics["error_summary"]["missing_required_evidence_kinds"] == {
+        "unavailable_kind": 1
+    }
+    assert result.metrics["error_summary"]["recommendations"] == [
+        "Tighten desk-screening scope for practitioner/applied economic forecasting.",
+        "Make handling-editor and publication-track gates more conservative before provider work.",
+        "Review deep-dive ranking penalties for applied value, evidence quality, and track fit.",
+        "Improve evidence extraction or kind mapping for: unavailable_kind.",
+    ]
     assert result.mismatches[0].paper_id == "paper-1"
     assert any(
         mismatch["reason"] == "Missing required evidence kinds: unavailable_kind."
@@ -187,10 +208,49 @@ def test_cli_evaluate_errors_prints_mismatch_report(tmp_path, capsys) -> None:
     )
 
     output = capsys.readouterr().out
+    assert "Error summary:" in output
+    assert "triage_overpromotion: 1" in output
+    assert "Improve evidence extraction or kind mapping for: unavailable_kind." in output
     assert "Mismatches: 7" in output
     assert "- Inflation forecasting with probabilistic models [paper-1]" in output
-    assert "triage_decision: human=reject; system=assign_reviewers" in output
+    assert (
+        "triage_decision: human=reject; system=assign_reviewers; "
+        "type=triage_overpromotion" in output
+    )
     assert "required_evidence: human=[unavailable_kind]" in output
+
+
+def test_error_summary_dict_groups_by_failure_type() -> None:
+    items = (
+        {
+            "paper_id": "paper-1",
+            "title": "Forecasting paper",
+            "label": {
+                "expected_triage_decision": "reject",
+                "expected_category": "not_relevant",
+                "expected_editorial_decision": "reject",
+                "expected_deep_dive": False,
+                "expected_short_mention": False,
+                "publication_track": "reject",
+                "required_evidence_kinds": ["scenario"],
+            },
+            "triage": {"decision": "assign_reviewers", "category_hint": "directly_relevant"},
+            "selection": {"selected_deep_dive": True, "selected_short_mention": False},
+            "evidence": {
+                "evidence_kinds": ["method"],
+                "missing_required_kinds": ["scenario"],
+            },
+            "editorial": {"decision": "full_deep_dive", "publication_track": "deep_dive"},
+        },
+    )
+
+    summary = error_summary_dict(items)
+
+    assert summary["mismatch_count"] == 6
+    assert summary["paper_count"] == 1
+    assert summary["by_field"]["required_evidence"] == 1
+    assert summary["by_failure_type"]["publication_track_overpromotion"] == 1
+    assert summary["missing_required_evidence_kinds"] == {"scenario": 1}
 
 
 def test_create_benchmark_template_requires_human_acceptance(tmp_path) -> None:
