@@ -1,6 +1,6 @@
 # ETS4 State
 
-Last updated: 2026-06-05
+Last updated: 2026-06-22
 
 This file is the fast handoff note for future ETS4 work. Read it after the
 README and before making implementation changes.
@@ -41,8 +41,8 @@ benchmark expansion, or website integration.
 
 ## Current Pilot Position
 
-We are after the first real pilot run and after the first retrieval-quality
-correction loop. We are before the first human-labeled benchmark evaluation.
+We are after the first real pilot run, after the first retrieval-quality
+correction loop, and after the first small human-labeled benchmark evaluation.
 
 The last real pilot run used:
 
@@ -58,37 +58,58 @@ Observed pilot outcome after retrieval improvements:
 - usable PDF-backed reviewed papers: 9
 - remaining document failure: one `403 Forbidden` repository response
 - generated benchmark template papers: 21
-- accepted benchmark labels: 0
+- accepted initial-subset benchmark labels: 6
 
 The remaining `403 Forbidden` failure is explicit and recoverable. It should not
 block benchmark labeling unless that source is editorially important.
 
+## Latest Evaluation
+
+The first accepted benchmark subset was evaluated on 2026-06-22.
+
+- labels file: `exports/benchmarks/run-960b75015cc3.initial-subset.json`
+- benchmark version: `run-960b75015cc3-human-v1-subset`
+- labeled papers: 6
+- triage decision accuracy: 0.3333
+- triage category accuracy: 0.3333
+- selected-paper precision: 0.6
+- relevant-paper recall: 1.0
+- hard-negative false-positive rate: 0.0
+- required evidence-kind coverage: 0.3611
+- papers missing required evidence: 3
+- reviewer citation coverage: 1.0
+- invalid citation rate: 0.0
+- editorial decision accuracy: 0.0
+- deep-dive selection accuracy: 0.5
+- short-mention selection accuracy: 0.8333
+
+Interpretation: the fake-provider baseline preserves citation validity on the
+accepted subset, but it does not match human editorial labels well enough for
+real use. The next implementation work should make benchmark inspection and
+error analysis easier before adding a real provider.
+
 ## Next Recommended Task
 
-Create the first accepted human benchmark subset from the generated template.
+Implement benchmark evaluation reporting and error analysis for the accepted
+subset.
 
 Suggested scope:
 
-- run `ets4 benchmark-status` on
-  `exports/benchmarks/run-960b75015cc3.benchmark-template.json`
-- create a small copied subset file before trying to label all 21 papers
-- include at least one deep-dive candidate, one short mention, one rejected or
-  weak candidate, and the blocked-full-text failure if useful
-- fill `relevance_label`, expected triage/editorial decisions, deep-dive and
-  short-mention expectations, required evidence kinds, `hard_negative`, and
-  `high_value`
-- set `label_status` to `accepted` only after human inspection
-- run `ets4 evaluate` against the accepted benchmark
+- add a CLI/report command or evaluation option that lists per-paper mismatches
+  between human labels and system outputs
+- show which papers drive low triage accuracy, editorial decision accuracy, and
+  evidence-kind coverage
+- keep accepted human labels as ignored local artifacts unless a curated test
+  fixture is intentionally created
+- update docs after the reporting workflow is implemented
 
 Suggested command pattern:
 
 ```bash
-ets4 benchmark-template --run-id run-960b75015cc3
-ets4 benchmark-status \
-  --labels exports/benchmarks/run-960b75015cc3.benchmark-template.json \
-  --subset-output exports/benchmarks/run-960b75015cc3.initial-subset.json \
-  --subset-size 6
-ets4 evaluate --run-id run-960b75015cc3 --labels path/to/accepted-benchmark.json
+ets4 evaluate \
+  --run-id run-960b75015cc3 \
+  --labels exports/benchmarks/run-960b75015cc3.initial-subset.json \
+  --json
 ```
 
 ## Working Commands
@@ -112,7 +133,8 @@ ets4 run-scheduled --issue-date YYYY-MM-DD
 ## Known Gaps
 
 - No real model provider is implemented yet.
-- No accepted human benchmark exists yet.
+- A small accepted human benchmark subset exists locally, but no source-controlled
+  benchmark fixture has been curated from it.
 - No website-repository integration exists yet.
 - Human override workflow exists conceptually and through config controls, but
   there is no dedicated interactive UI.
