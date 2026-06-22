@@ -117,17 +117,19 @@ To compare the current deterministic baseline against an earlier collected run
 without fetching sources again, replay the source run:
 
 ```bash
+ets4 refresh-evidence --run-id run-example123
 ets4 replay-baseline \
   --source-run-id run-example123 \
   --labels path/to/benchmark.json \
   --errors
 ```
 
-`replay-baseline` creates a new evaluation-mode run, re-triages papers from the
-source run with the current configured provider, reuses stored evidence for
-selected reviews, and can evaluate the replay immediately. Use this before
-adding a real provider so deterministic rubric or selection changes are measured
-against the same accepted labels.
+`refresh-evidence` rebuilds evidence items from stored extracted pages without
+network retrieval. `replay-baseline` then creates a new evaluation-mode run,
+re-triages papers from the source run with the current configured provider,
+reuses stored evidence for selected reviews, and can evaluate the replay
+immediately. Use this before adding a real provider so deterministic rubric,
+evidence, or selection changes are measured against the same accepted labels.
 
 ## Labeling Guide
 

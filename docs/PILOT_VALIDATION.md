@@ -134,6 +134,7 @@ compare the current baseline against the same collected source run before
 adding a real provider:
 
 ```bash
+ets4 refresh-evidence --run-id run-example123
 ets4 replay-baseline \
   --source-run-id run-example123 \
   --labels path/to/benchmark.json \

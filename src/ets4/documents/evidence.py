@@ -20,6 +20,7 @@ KEYWORD_RULES = (
     ("scenario", ("scenario", "scenarios", "stress test", "stress-test")),
     ("judgement", ("judgement", "judgment", "expert judgement", "expert judgment")),
     ("structural_break", ("structural break", "structural breaks", "regime shift")),
+    ("regime_switching", ("regime switching", "regime-switching", "markov switching")),
     ("volatility", ("volatility", "garch", "figarch")),
     ("trading", ("trading", "portfolio", "value at risk", "expected shortfall")),
     ("Covid-19", ("covid-19", "covid", "pandemic")),

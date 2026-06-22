@@ -116,6 +116,33 @@ Reversal condition: If later human labels need more lanes, extend
 `publication_track` values or add an issue type rather than folding track
 semantics back into editorial decisions.
 
+## 2026-06-22: Refresh Evidence from Stored Pages for Extraction Comparisons
+
+Decision: ETS4 can rebuild evidence items from stored extracted document pages
+with `refresh-evidence`, without refetching documents.
+
+Context: The first accepted subset exposed required evidence kinds that were not
+covered by the original generic extractor, such as scenario, judgement,
+structural breaks, regime switching, Covid-19, volatility, and trading. The
+source PDF/text pages were already stored in SQLite, so measuring improved
+evidence rules should not require network retrieval or source recollection.
+
+Alternatives considered:
+
+- Re-run document retrieval for every evidence rule change.
+- Leave older pilot evidence untouched and measure only future fresh runs.
+- Rebuild evidence items from stored pages while preserving document and page
+  records.
+
+Consequence: Evidence-rule changes can be compared on existing ignored pilot
+databases by running `ets4 refresh-evidence --run-id ...` followed by
+`ets4 replay-baseline --labels ... --errors`. This keeps runtime artifacts out
+of Git while making evidence coverage improvements measurable.
+
+Reversal condition: If stored pages are incomplete, stale, or from a failed
+extraction path, run fresh extraction or a new pilot instead of relying on
+refresh.
+
 ## 2026-06-05: Treat Phase 7 Completion as a Validation Gate, Not Production
 
 Decision: Completing the seven implementation phases does not make ETS4

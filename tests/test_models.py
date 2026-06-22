@@ -144,3 +144,18 @@ def test_fake_handling_editor_caps_financial_method_paper() -> None:
 
     assert result.decision == "watchlist"
     assert "Applied forecasting fit is limited" in result.questions_for_human[-1]
+
+
+def test_fake_reviewer_does_not_block_high_score_for_two_missing_kinds() -> None:
+    provider = FakeModelProvider()
+    dossier = {
+        "paper": {"title": "Scenario evaluation"},
+        "evidence_items": [
+            {"id": 1, "kind": "dataset"},
+            {"id": 2, "kind": "metric"},
+        ],
+    }
+
+    result = provider.review("practitioner", dossier)
+
+    assert result.recommendation == "support_short_mention"

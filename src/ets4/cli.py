@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .collect import collect_rss_source
 from .config import load_config
-from .documents import process_document_for_paper
+from .documents import process_document_for_paper, refresh_evidence_from_stored_pages
 from .evaluate import (
     BenchmarkValidationResult,
     EvaluationMismatch,
@@ -88,6 +88,20 @@ def build_parser() -> argparse.ArgumentParser:
     extract_parser.add_argument("--paper-id", help="Paper id to extract evidence for.")
     extract_parser.add_argument("--source", help="Document URL or local path.")
     extract_parser.set_defaults(func=cmd_extract)
+
+    refresh_evidence_parser = subparsers.add_parser(
+        "refresh-evidence",
+        help="Rebuild evidence items from stored extracted document pages.",
+    )
+    refresh_evidence_parser.add_argument(
+        "--run-id",
+        help="Refresh successful documents extracted for one run.",
+    )
+    refresh_evidence_parser.add_argument(
+        "--paper-id",
+        help="Refresh successful documents for one paper.",
+    )
+    refresh_evidence_parser.set_defaults(func=cmd_refresh_evidence)
 
     review_parser = subparsers.add_parser(
         "review",
@@ -489,6 +503,26 @@ def cmd_extract(args: argparse.Namespace) -> int:
     print(f"Processed documents: {processed}")
     print(f"Document errors: {errors}")
     return 1 if errors else 0
+
+
+def cmd_refresh_evidence(args: argparse.Namespace) -> int:
+    if not args.run_id and not args.paper_id:
+        raise SystemExit("refresh-evidence requires --run-id or --paper-id")
+    with connect(args.db) as conn:
+        init_db(conn)
+        if args.run_id and not run_exists(conn, args.run_id):
+            raise SystemExit(f"Run manifest not found: {args.run_id}")
+        result = refresh_evidence_from_stored_pages(
+            conn,
+            run_id=args.run_id,
+            paper_id=args.paper_id,
+        )
+    print(f"Run manifest: {args.run_id or 'n/a'}")
+    print(f"Paper id: {args.paper_id or 'all'}")
+    print(f"Refreshed documents: {result.document_count}")
+    print(f"Evidence items: {result.evidence_count}")
+    print(f"Skipped documents: {result.skipped_count}")
+    return 0
 
 
 def cmd_review(args: argparse.Namespace) -> int:

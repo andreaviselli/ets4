@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from dataclasses import dataclass
 
@@ -125,6 +126,7 @@ def select_publication_candidates(
             editorial_decisions.decision,
             editorial_decisions.deep_dive_score,
             editorial_decisions.confidence,
+            editorial_decisions.memo_json,
             review_dossiers.evidence_count
         FROM editorial_decisions
         JOIN papers ON papers.id = editorial_decisions.paper_id
@@ -154,6 +156,7 @@ def select_publication_candidates(
         item
         for item in ranked
         if item[2]["decision"] == "full_deep_dive"
+        and _row_publication_track(item[2]) == "deep_dive"
     ]
     deep_selected = deep_candidates[: config.issue.max_deep_dive_drafts]
     deep_ids = {item[2]["id"] for item in deep_selected}
@@ -161,7 +164,10 @@ def select_publication_candidates(
         item
         for item in ranked
         if item[2]["id"] not in deep_ids
-        and item[2]["decision"] in {"short_mention", "full_deep_dive"}
+        and (
+            item[2]["decision"] == "short_mention"
+            or _row_publication_track(item[2]) == "applied_note"
+        )
     ]
     short_selected = short_candidates[: config.issue.max_short_mentions]
 
@@ -223,11 +229,31 @@ def _selection_reason(row: sqlite3.Row, forced: bool) -> str:
 def _publication_reason(row: sqlite3.Row, forced: bool) -> str:
     reason = (
         f"editor_decision={row['decision']}; deep_dive_score={row['deep_dive_score']:.2f}; "
-        f"confidence={row['confidence']:.2f}; evidence_count={row['evidence_count']}"
+        f"confidence={row['confidence']:.2f}; evidence_count={row['evidence_count']}; "
+        f"publication_track={_row_publication_track(row)}"
     )
     if forced:
         return f"human force_include override; {reason}"
     return reason
+
+
+def _row_publication_track(row: sqlite3.Row) -> str | None:
+    try:
+        memo = json.loads(row["memo_json"])
+    except (KeyError, TypeError, json.JSONDecodeError):
+        memo = {}
+    if isinstance(memo, dict) and memo.get("publication_track"):
+        return str(memo["publication_track"])
+    decision = str(row["decision"])
+    if decision == "full_deep_dive":
+        return "deep_dive"
+    if decision == "short_mention":
+        return "applied_note"
+    if decision == "watchlist":
+        return "methods_watch"
+    if decision == "reject":
+        return "reject"
+    return None
 
 
 def _write_publication_selection(

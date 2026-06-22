@@ -36,6 +36,7 @@
       "social_hook_potential": "low",
       "expected_category": "not_relevant",
       "expected_triage_decision": "reject",
+      "expected_editorial_decision": "reject",
       "expected_deep_dive": false,
       "expected_short_mention": false,
       "hard_negative": true

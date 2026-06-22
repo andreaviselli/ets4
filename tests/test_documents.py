@@ -9,11 +9,19 @@ from ets4.config import load_config
 from ets4.documents.evidence import extract_evidence_candidates
 from ets4.documents.extraction import PageText, extract_pages
 from ets4.documents.processor import process_document_for_paper
+from ets4.cli import main
 from ets4.documents.quality import assess_extracted_pages
 from ets4.documents.retrieval import retrieve_document
 from ets4.documents.resolver import resolve_document_uri
 from ets4.manifest import create_manifest
-from ets4.store.db import connect, init_db, insert_manifest, upsert_paper
+from ets4.store.db import (
+    connect,
+    init_db,
+    insert_document,
+    insert_document_page,
+    insert_manifest,
+    upsert_paper,
+)
 
 
 def test_process_text_document_extracts_pages_and_evidence(tmp_path) -> None:
@@ -52,7 +60,8 @@ def test_extract_evidence_candidates_recognizes_domain_specific_kinds() -> None:
             page_number=1,
             text=(
                 "Alternative scenarios rely on expert judgement during stress testing.\n\n"
-                "The structural break during Covid-19 changed volatility and trading risk."
+                "The Markov switching structural break during Covid-19 changed volatility "
+                "and trading risk."
             ),
         )
     ]
@@ -61,7 +70,91 @@ def test_extract_evidence_candidates_recognizes_domain_specific_kinds() -> None:
 
     assert {
         candidate.kind for candidate in candidates
-    } >= {"scenario", "judgement", "structural_break", "Covid-19", "volatility", "trading"}
+    } >= {
+        "scenario",
+        "judgement",
+        "structural_break",
+        "regime_switching",
+        "Covid-19",
+        "volatility",
+        "trading",
+    }
+
+
+def test_refresh_evidence_rebuilds_items_from_stored_pages(tmp_path) -> None:
+    db_path = tmp_path / "ets4.sqlite"
+    config = load_config("config/feeds.example.toml")
+    manifest = create_manifest(config, date(2026, 6, 8))
+
+    with connect(db_path) as conn:
+        init_db(conn)
+        insert_manifest(conn, manifest)
+        upsert_paper(
+            conn,
+            paper_id="paper-1",
+            title="Scenario paper",
+            canonical_url="https://example.test/paper-1",
+        )
+        insert_document(
+            conn,
+            document_id="doc-1",
+            paper_id="paper-1",
+            run_id=manifest.run_id,
+            source_uri="stored://doc-1",
+            content_type="text/plain",
+            content_sha256="hash",
+            page_count=1,
+            status="ok",
+        )
+        insert_document_page(
+            conn,
+            document_id="doc-1",
+            page_number=1,
+            text=(
+                "Alternative scenarios rely on expert judgement during stress testing.\n\n"
+                "The structural break during Covid-19 changed volatility and trading risk."
+            ),
+        )
+        conn.commit()
+
+    assert (
+        main(
+            [
+                "--db",
+                str(db_path),
+                "refresh-evidence",
+                "--run-id",
+                manifest.run_id,
+            ]
+        )
+        == 0
+    )
+
+    with connect(db_path) as conn:
+        kinds = {
+            row["kind"]
+            for row in conn.execute(
+                "SELECT kind FROM evidence_items WHERE document_id = ?",
+                ("doc-1",),
+            ).fetchall()
+        }
+        assert kinds >= {
+            "scenario",
+            "judgement",
+            "structural_break",
+            "Covid-19",
+            "volatility",
+            "trading",
+        }
+        event = conn.execute(
+            """
+            SELECT status, message FROM document_events
+            WHERE document_id = ? ORDER BY id DESC LIMIT 1
+            """,
+            ("doc-1",),
+        ).fetchone()
+        assert event["status"] == "ok"
+        assert "Refreshed" in event["message"]
 
 
 def test_pdf_extraction_preserves_pages(tmp_path) -> None:

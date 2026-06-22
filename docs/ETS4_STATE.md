@@ -54,6 +54,9 @@ expansion, or website integration.
   in an existing source run, reuses stored evidence, and can evaluate accepted
   labels immediately. This supports deterministic baseline comparison without
   recollecting sources.
+- `ets4 refresh-evidence` rebuilds evidence items from stored extracted pages
+  without refetching documents. Use it after evidence-kind rule changes before
+  replaying a baseline.
 
 ## Current Pilot Position
 
@@ -101,8 +104,9 @@ under the practitioner/applied forecasting rubric.
 - short-mention selection accuracy: 0.8333
 - publication-track accuracy: 0.1667
 - publication-track distribution: 2 applied notes, 4 rejects
-- latest deterministic replay run: `run-1cb4e201b46d`
-- latest replay evaluation run: `eval-4d29d0af0bacc365`
+- latest evidence refresh: 9 documents refreshed, 3196 evidence items, 0 skips
+- latest deterministic replay run: `run-407e0f64116b`
+- latest replay evaluation run: `eval-5a058447f8bc039e`
 - replay triaged papers: 21
 - replay selected for full review: 8
 - replay reviewed papers: 8
@@ -110,35 +114,37 @@ under the practitioner/applied forecasting rubric.
 - replay triage decision accuracy: 0.8333
 - replay selected-paper precision: 0.75
 - replay relevant-paper recall: 0.75
-- replay required evidence-kind coverage: 0.3611
+- replay required evidence-kind coverage: 1.0
 - replay editorial decision accuracy: 0.3333
-- replay deep-dive selection accuracy: 1.0
+- replay deep-dive selection accuracy: 0.8333
 - replay publication-track accuracy: 1.0
-- replay per-paper mismatches: 11
+- replay per-paper mismatches: 6
 
 Interpretation: the fake-provider baseline preserves citation validity on the
 accepted subset. The replayed baseline improved triage decision accuracy,
-deep-dive selection accuracy, publication-track accuracy, and total mismatch
-count compared with the stored pilot evaluation. Remaining failures now
-concentrate in evidence-kind extraction gaps, missing review outputs for
-rejected or unselected papers, and a few triage/editorial edge cases. The source
-now extracts the missing domain-specific evidence kinds for future document
-processing, but the ignored pilot SQLite evidence has not been regenerated with
-those rules. The current result is still not strong enough for real-provider
-adoption or website integration.
+deep-dive selection accuracy, publication-track accuracy, evidence-kind
+coverage, and total mismatch count compared with the stored pilot evaluation.
+Evidence-kind coverage is now complete on the accepted subset after refreshing
+stored pages. Remaining failures are residual triage/editorial edge cases:
+one applied-method paper labeled for both deep-dive and applied-note treatment,
+one VaR/equity-market paper whose label expects direct relevance but rejection,
+and two financial-method/watchlist cases where human labels distinguish reject
+from human adjudication. The current result is still not strong enough for
+real-provider adoption or website integration.
 
 ## Next Recommended Task
 
-Regenerate evidence for the accepted subset or run a fresh deterministic pilot
-so the new domain-specific evidence-kind extraction can be evaluated.
+Resolve the residual accepted-subset triage/editorial edge cases or expand the
+benchmark before adding a real provider.
 
 Suggested scope:
 
-- re-extract or freshly process selected documents with the updated evidence
-  rules
-- replay and evaluate the accepted subset with `ets4 replay-baseline --errors`
-- check whether required evidence-kind coverage improves from 0.3611
-- preserve the latest publication-track and deep-dive selection improvements
+- inspect the accepted labels for the remaining six mismatches and decide
+  whether they reflect label ambiguity, evaluator semantics, or model behavior
+- decide whether `watchlist` should satisfy `needs_human_adjudication` for
+  method-watch papers or remain an exact editorial mismatch
+- preserve hard-negative false-positive rate 0, evidence coverage 1.0, and
+  publication-track accuracy 1.0 on the accepted subset
 - keep accepted human labels as ignored local artifacts unless a curated test
   fixture is intentionally created
 - do not add a real model provider until evidence coverage and editorial
@@ -147,6 +153,7 @@ Suggested scope:
 Suggested command pattern:
 
 ```bash
+ets4 refresh-evidence --run-id run-960b75015cc3
 ets4 replay-baseline \
   --source-run-id run-960b75015cc3 \
   --labels exports/benchmarks/run-960b75015cc3.initial-subset.json \
@@ -162,6 +169,7 @@ ets4 collect --run-id run-example123
 ets4 triage --run-id run-example123
 ets4 select --run-id run-example123
 ets4 extract --run-id run-example123
+ets4 refresh-evidence --run-id run-example123
 ets4 review --run-id run-example123
 ets4 benchmark-template --run-id run-example123
 ets4 benchmark-status --labels path/to/benchmark.json

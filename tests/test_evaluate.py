@@ -52,6 +52,8 @@ def test_evaluate_run_persists_metrics_and_items(tmp_path) -> None:
         }
         assert result.metrics["error_summary"]["mismatch_count"] == 0
         assert result.metrics["mismatches"] == []
+        assert result.item_results[1]["editorial"]["present"] is False
+        assert result.item_results[1]["editorial"]["decision"] == "reject"
         assert conn.execute("SELECT COUNT(*) FROM evaluation_runs").fetchone()[0] == 1
         assert conn.execute("SELECT COUNT(*) FROM evaluation_items").fetchone()[0] == 2
 

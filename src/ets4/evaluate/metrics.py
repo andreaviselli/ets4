@@ -62,6 +62,10 @@ def evaluate_paper(conn: sqlite3.Connection, *, run_id: str, label: PaperLabel) 
             (run_id, label.paper_id),
         ).fetchall()
     }
+    selected_full_review = "full_review" in selections
+    system_editorial_decision = (
+        decision["decision"] if decision else ("reject" if not selected_full_review else None)
+    )
 
     evidence_ids = {int(row["id"]) for row in evidence_rows}
     evidence_kinds = {str(row["kind"]) for row in evidence_rows}
@@ -73,7 +77,7 @@ def evaluate_paper(conn: sqlite3.Connection, *, run_id: str, label: PaperLabel) 
     reviewer_recommendations = {str(row["recommendation"]) for row in reports}
     memo = _json_dict(decision["memo_json"]) if decision else {}
     system_publication_track = memo.get("publication_track") or _system_publication_track(
-        decision["decision"] if decision else None,
+        system_editorial_decision,
         selections=selections,
     )
 
@@ -112,7 +116,7 @@ def evaluate_paper(conn: sqlite3.Connection, *, run_id: str, label: PaperLabel) 
             ),
         },
         "selection": {
-            "selected_full_review": "full_review" in selections,
+            "selected_full_review": selected_full_review,
             "selected_deep_dive": "deep_dive_draft" in selections,
             "selected_short_mention": "short_mention" in selections,
             "deep_dive_correct": _equals_optional(
@@ -148,7 +152,7 @@ def evaluate_paper(conn: sqlite3.Connection, *, run_id: str, label: PaperLabel) 
         },
         "editorial": {
             "present": decision is not None,
-            "decision": decision["decision"] if decision else None,
+            "decision": system_editorial_decision,
             "deep_dive_score": float(decision["deep_dive_score"]) if decision else None,
             "publication_track": system_publication_track,
             "publication_track_correct": _equals_optional(
@@ -156,7 +160,7 @@ def evaluate_paper(conn: sqlite3.Connection, *, run_id: str, label: PaperLabel) 
                 label.publication_track,
             ),
             "decision_correct": _equals_optional(
-                decision["decision"] if decision else None,
+                system_editorial_decision,
                 label.expected_editorial_decision,
             ),
             "minority_view": memo.get("minority_view"),

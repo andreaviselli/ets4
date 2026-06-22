@@ -75,6 +75,7 @@ ets4 collect --dry-run --run-id run-example123
 ets4 triage --run-id run-example123
 ets4 select --run-id run-example123
 ets4 extract --run-id run-example123
+ets4 refresh-evidence --run-id run-example123
 ets4 review --run-id run-example123
 ets4 benchmark-template --run-id run-example123
 ets4 benchmark-status --labels path/to/benchmark.json
@@ -105,6 +106,10 @@ explicit paper and document:
 ```bash
 ets4 extract --paper-id paper-1 --source path/to/paper.pdf
 ```
+
+`refresh-evidence` rebuilds evidence items from already stored extracted pages,
+without refetching documents. Use it after evidence-kind rule changes to update
+an ignored local pilot database before replay/evaluation.
 
 `review` builds an evidence dossier from extracted evidence items, runs
 independent fake reviewer reports for relevance, methods, evidence,

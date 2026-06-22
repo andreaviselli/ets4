@@ -421,7 +421,7 @@ def _count_evidence_by_kind(evidence_items: list[dict[str, Any]]) -> dict[str, i
 
 
 def _review_recommendation(score: float, missing: tuple[str, ...]) -> str:
-    if len(missing) >= 2:
+    if len(missing) >= 3:
         return "needs_editor"
     if score >= 7.0:
         return "support_deep_dive"
