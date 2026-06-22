@@ -41,6 +41,10 @@ expansion, or website integration.
 - Benchmark labels now include practitioner/applied rubric fields: audience
   fit, application type, economic relevance, forecasting contribution,
   publication track, and social hook potential.
+- `ets4 evaluate --errors` reports per-paper mismatches between accepted human
+  labels and ETS4 outputs for triage, category, editorial decisions, selection,
+  publication track, and required evidence coverage. `--json` includes the same
+  report in a `mismatches` array.
 
 ## Current Pilot Position
 
@@ -88,29 +92,32 @@ under the practitioner/applied forecasting rubric.
 - short-mention selection accuracy: 0.8333
 - publication-track accuracy: 0.1667
 - publication-track distribution: 2 applied notes, 4 rejects
+- latest error-report verification: `ets4 evaluate --errors` produced
+  evaluation run `eval-ce07ddb02db9104a` and 23 per-paper mismatches from the
+  accepted subset in the ignored pilot SQLite database
 
 Interpretation: the fake-provider baseline preserves citation validity on the
 accepted subset, but it does not match human editorial labels well enough for
 real use. The revised labels improve triage/category metrics, but the baseline
 still promotes too many papers into deep-dive-like treatment when the
-practitioner/applied rubric expects applied notes or rejects. The next
-implementation work should make benchmark inspection and error analysis easier
-before adding a real provider.
+practitioner/applied rubric expects applied notes or rejects. Benchmark
+inspection and error reporting are now available through the `--errors`
+evaluation option, so the next pilot task can use the accepted subset's failure
+report before adding a real provider.
 
 ## Next Recommended Task
 
-Implement benchmark evaluation reporting and error analysis for the accepted
-subset.
+Run and inspect the benchmark error report for the accepted subset, then use
+the per-paper failures to decide the next pilot investment.
 
 Suggested scope:
 
-- add a CLI/report command or evaluation option that lists per-paper mismatches
-  between human labels and system outputs
-- show which papers drive low triage accuracy, editorial decision accuracy, and
-  evidence-kind coverage
+- run `ets4 evaluate --errors` on the accepted subset
+- identify which papers drive low triage accuracy, editorial decision accuracy,
+  publication-track accuracy, and evidence-kind coverage
 - keep accepted human labels as ignored local artifacts unless a curated test
   fixture is intentionally created
-- update docs after the reporting workflow is implemented
+- do not add a real model provider until the failure report has been reviewed
 
 Suggested command pattern:
 
@@ -118,7 +125,7 @@ Suggested command pattern:
 ets4 evaluate \
   --run-id run-960b75015cc3 \
   --labels exports/benchmarks/run-960b75015cc3.initial-subset.json \
-  --json
+  --errors
 ```
 
 ## Working Commands

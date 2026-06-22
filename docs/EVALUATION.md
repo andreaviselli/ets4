@@ -89,6 +89,21 @@ ets4 evaluate --run-id run-example123 --labels path/to/benchmark.json
 Each evaluation stores one row in `evaluation_runs` and one row per paper in
 `evaluation_items`.
 
+To inspect the failures behind aggregate scores, add `--errors`:
+
+```bash
+ets4 evaluate --run-id run-example123 --labels path/to/benchmark.json --errors
+```
+
+The error report lists each labeled paper with mismatches between human labels
+and ETS4 outputs for triage decision, category, editorial decision, deep-dive
+selection, short-mention selection, publication track, and missing required
+evidence kinds. Each mismatch includes the paper title, paper id, accepted human
+label, system output, and a concise failure reason.
+
+For machine-readable inspection, `--json` includes a `mismatches` array with the
+same per-paper fields.
+
 ## Labeling Guide
 
 Use benchmark labels to describe the human editor's expected judgment, not the

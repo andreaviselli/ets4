@@ -1,6 +1,7 @@
 """Evaluation harness for labeled ETS4 benchmark runs."""
 
 from .labels import Benchmark, PaperLabel, load_benchmark
+from .report import EvaluationMismatch, evaluation_mismatches, mismatch_dicts
 from .runner import EvaluationResult, evaluate_run
 from .template import BenchmarkTemplateResult, create_benchmark_template
 from .validate import (
@@ -15,11 +16,14 @@ __all__ = [
     "BenchmarkSubsetResult",
     "BenchmarkTemplateResult",
     "BenchmarkValidationResult",
+    "EvaluationMismatch",
     "EvaluationResult",
     "PaperLabel",
     "create_benchmark_template",
     "create_benchmark_subset",
+    "evaluation_mismatches",
     "evaluate_run",
     "load_benchmark",
+    "mismatch_dicts",
     "validate_benchmark_file",
 ]

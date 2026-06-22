@@ -8,6 +8,15 @@ from .labels import PaperLabel
 
 
 def evaluate_paper(conn: sqlite3.Connection, *, run_id: str, label: PaperLabel) -> dict[str, Any]:
+    paper = _fetch_one(
+        conn,
+        """
+        SELECT title
+        FROM papers
+        WHERE id = ?
+        """,
+        (label.paper_id,),
+    )
     triage = _fetch_one(
         conn,
         """
@@ -70,6 +79,7 @@ def evaluate_paper(conn: sqlite3.Connection, *, run_id: str, label: PaperLabel) 
 
     return {
         "paper_id": label.paper_id,
+        "title": paper["title"] if paper else None,
         "label": {
             "relevance_label": label.relevance_label,
             "audience_fit": label.audience_fit,
@@ -78,6 +88,12 @@ def evaluate_paper(conn: sqlite3.Connection, *, run_id: str, label: PaperLabel) 
             "forecasting_contribution": label.forecasting_contribution,
             "publication_track": label.publication_track,
             "social_hook_potential": label.social_hook_potential,
+            "expected_category": label.expected_category,
+            "expected_triage_decision": label.expected_triage_decision,
+            "expected_editorial_decision": label.expected_editorial_decision,
+            "expected_deep_dive": label.expected_deep_dive,
+            "expected_short_mention": label.expected_short_mention,
+            "required_evidence_kinds": list(label.required_evidence_kinds),
             "hard_negative": label.hard_negative,
             "high_value": label.high_value,
         },
@@ -110,6 +126,7 @@ def evaluate_paper(conn: sqlite3.Connection, *, run_id: str, label: PaperLabel) 
         },
         "evidence": {
             "evidence_count": len(evidence_rows),
+            "evidence_kinds": sorted(evidence_kinds),
             "required_kind_count": len(required_kinds),
             "covered_required_kind_count": len(covered_required_kinds),
             "required_kind_coverage": _ratio(len(covered_required_kinds), len(required_kinds)),

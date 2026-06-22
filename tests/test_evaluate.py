@@ -49,8 +49,64 @@ def test_evaluate_run_persists_metrics_and_items(tmp_path) -> None:
             "out_of_scope": 1,
             "practitioner": 1,
         }
+        assert result.metrics["mismatches"] == []
         assert conn.execute("SELECT COUNT(*) FROM evaluation_runs").fetchone()[0] == 1
         assert conn.execute("SELECT COUNT(*) FROM evaluation_items").fetchone()[0] == 2
+
+
+def test_evaluate_run_reports_per_paper_mismatches(tmp_path) -> None:
+    db_path = tmp_path / "ets4.sqlite"
+    labels_path = tmp_path / "mismatch-labels.json"
+    run_id = _create_evaluable_run(db_path)
+    labels_path.write_text(
+        json.dumps(
+            {
+                "version": "mismatch-fixture-v1",
+                "papers": [
+                    {
+                        "paper_id": "paper-1",
+                        "label_status": "accepted",
+                        "relevance_label": "directly_relevant",
+                        "audience_fit": "practitioner",
+                        "application_type": "forecasting",
+                        "economic_relevance": "high",
+                        "forecasting_contribution": "genuine_application",
+                        "publication_track": "reject",
+                        "social_hook_potential": "medium",
+                        "expected_category": "not_relevant",
+                        "expected_triage_decision": "reject",
+                        "expected_editorial_decision": "reject",
+                        "expected_deep_dive": False,
+                        "expected_short_mention": True,
+                        "required_evidence_kinds": ["method", "unavailable_kind"],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with connect(db_path) as conn:
+        result = evaluate_run(conn, run_id=run_id, labels_path=labels_path)
+
+    mismatch_fields = {mismatch["field"] for mismatch in result.metrics["mismatches"]}
+    assert mismatch_fields == {
+        "category",
+        "deep_dive_selection",
+        "editorial_decision",
+        "publication_track",
+        "required_evidence",
+        "short_mention_selection",
+        "triage_decision",
+    }
+    assert result.metrics["mismatches"][0]["title"] == (
+        "Inflation forecasting with probabilistic models"
+    )
+    assert result.mismatches[0].paper_id == "paper-1"
+    assert any(
+        mismatch["reason"] == "Missing required evidence kinds: unavailable_kind."
+        for mismatch in result.metrics["mismatches"]
+    )
 
 
 def test_cli_evaluate_completed_run(tmp_path) -> None:
@@ -78,6 +134,63 @@ def test_cli_evaluate_completed_run(tmp_path) -> None:
         assert conn.execute("SELECT benchmark_version FROM evaluation_runs").fetchone()[0] == (
             "phase5-fixture-v1"
         )
+
+
+def test_cli_evaluate_errors_prints_mismatch_report(tmp_path, capsys) -> None:
+    db_path = tmp_path / "ets4.sqlite"
+    labels_path = tmp_path / "mismatch-labels.json"
+    run_id = _create_evaluable_run(db_path)
+    labels_path.write_text(
+        json.dumps(
+            {
+                "version": "mismatch-fixture-v1",
+                "papers": [
+                    {
+                        "paper_id": "paper-1",
+                        "label_status": "accepted",
+                        "relevance_label": "directly_relevant",
+                        "audience_fit": "practitioner",
+                        "application_type": "forecasting",
+                        "economic_relevance": "high",
+                        "forecasting_contribution": "genuine_application",
+                        "publication_track": "reject",
+                        "social_hook_potential": "medium",
+                        "expected_category": "not_relevant",
+                        "expected_triage_decision": "reject",
+                        "expected_editorial_decision": "reject",
+                        "expected_deep_dive": False,
+                        "expected_short_mention": True,
+                        "required_evidence_kinds": ["unavailable_kind"],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert (
+        main(
+            [
+                "--config",
+                "config/feeds.example.toml",
+                "--db",
+                str(db_path),
+                "evaluate",
+                "--run-id",
+                run_id,
+                "--labels",
+                str(labels_path),
+                "--errors",
+            ]
+        )
+        == 0
+    )
+
+    output = capsys.readouterr().out
+    assert "Mismatches: 7" in output
+    assert "- Inflation forecasting with probabilistic models [paper-1]" in output
+    assert "triage_decision: human=reject; system=assign_reviewers" in output
+    assert "required_evidence: human=[unavailable_kind]" in output
 
 
 def test_create_benchmark_template_requires_human_acceptance(tmp_path) -> None:

@@ -10,6 +10,7 @@ from .config import load_config
 from .documents import process_document_for_paper
 from .evaluate import (
     BenchmarkValidationResult,
+    EvaluationMismatch,
     create_benchmark_subset,
     create_benchmark_template,
     evaluate_run,
@@ -111,6 +112,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="Print the full metric JSON.",
+    )
+    evaluate_parser.add_argument(
+        "--errors",
+        action="store_true",
+        help="Print per-paper mismatches between accepted labels and system outputs.",
     )
     evaluate_parser.set_defaults(func=cmd_evaluate)
 
@@ -554,6 +560,8 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
             "Publication-track accuracy: "
             f"{_format_metric(rubric.get('publication_track_accuracy'))}"
         )
+        if args.errors:
+            _print_evaluation_mismatches(result.mismatches)
     return 0
 
 
@@ -1003,6 +1011,32 @@ def _format_metric(value: float | None) -> str:
     if value is None:
         return "n/a"
     return f"{value:.3f}"
+
+
+def _print_evaluation_mismatches(mismatches: tuple[EvaluationMismatch, ...]) -> None:
+    print(f"Mismatches: {len(mismatches)}")
+    if not mismatches:
+        return
+    current_paper_id: str | None = None
+    for mismatch in mismatches:
+        if mismatch.paper_id != current_paper_id:
+            current_paper_id = mismatch.paper_id
+            title = mismatch.title or "(title unavailable)"
+            print(f"- {title} [{mismatch.paper_id}]")
+        print(
+            "  "
+            f"{mismatch.field}: human={_format_report_value(mismatch.human_label)}; "
+            f"system={_format_report_value(mismatch.system_output)}; "
+            f"{mismatch.reason}"
+        )
+
+
+def _format_report_value(value: object) -> str:
+    if value is None:
+        return "missing"
+    if isinstance(value, (list, tuple)):
+        return "[" + ", ".join(str(item) for item in value) + "]"
+    return str(value)
 
 
 def _print_benchmark_validation(result: BenchmarkValidationResult) -> None:
