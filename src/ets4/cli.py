@@ -527,6 +527,7 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
         evidence = result.metrics["evidence"]
         review = result.metrics["review"]
         selection = result.metrics["selection"]
+        rubric = result.metrics.get("rubric", {})
         print(f"Run manifest: {run_id}")
         print(f"Evaluation run: {result.evaluation_run_id}")
         print(f"Benchmark: {result.benchmark_version}")
@@ -549,6 +550,10 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
             f"{_format_metric(review['editorial_decision_accuracy'])}"
         )
         print(f"Deep-dive selection accuracy: {_format_metric(selection['deep_dive_accuracy'])}")
+        print(
+            "Publication-track accuracy: "
+            f"{_format_metric(rubric.get('publication_track_accuracy'))}"
+        )
     return 0
 
 

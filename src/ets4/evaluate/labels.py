@@ -20,12 +20,50 @@ VALID_EDITORIAL_DECISIONS = {
     "needs_human_adjudication",
     "reject",
 }
+VALID_AUDIENCE_FITS = {
+    "practitioner",
+    "applied_researcher",
+    "academic_methods",
+    "out_of_scope",
+}
+VALID_APPLICATION_TYPES = {
+    "forecasting",
+    "nowcasting",
+    "scenario_analysis",
+    "risk_monitoring",
+    "forecast_evaluation",
+    "method_only",
+    "descriptive",
+    "trading",
+    "out_of_scope",
+}
+VALID_ECONOMIC_RELEVANCE = {"high", "medium", "low", "absent"}
+VALID_FORECASTING_CONTRIBUTIONS = {
+    "genuine_application",
+    "standard_application",
+    "novel_method",
+    "indirect",
+    "absent",
+}
+VALID_PUBLICATION_TRACKS = {
+    "deep_dive",
+    "applied_note",
+    "methods_watch",
+    "reject",
+}
+VALID_SOCIAL_HOOK_POTENTIAL = {"high", "medium", "low"}
 
 
 @dataclass(frozen=True)
 class PaperLabel:
     paper_id: str
     relevance_label: str
+    audience_fit: str | None = None
+    application_type: str | None = None
+    economic_relevance: str | None = None
+    forecasting_contribution: str | None = None
+    publication_track: str | None = None
+    social_hook_potential: str | None = None
     expected_category: str | None = None
     expected_triage_decision: str | None = None
     expected_editorial_decision: str | None = None
@@ -72,6 +110,31 @@ def _load_label(raw: dict[str, Any]) -> PaperLabel:
     expected_category = _optional_str(raw.get("expected_category"))
     if expected_category and expected_category not in VALID_RELEVANCE_LABELS - {"borderline"}:
         raise ValueError(f"Invalid expected category for {paper_id}: {expected_category}")
+    audience_fit = _optional_str(raw.get("audience_fit"))
+    if audience_fit and audience_fit not in VALID_AUDIENCE_FITS:
+        raise ValueError(f"Invalid audience fit for {paper_id}: {audience_fit}")
+    application_type = _optional_str(raw.get("application_type"))
+    if application_type and application_type not in VALID_APPLICATION_TYPES:
+        raise ValueError(f"Invalid application type for {paper_id}: {application_type}")
+    economic_relevance = _optional_str(raw.get("economic_relevance"))
+    if economic_relevance and economic_relevance not in VALID_ECONOMIC_RELEVANCE:
+        raise ValueError(f"Invalid economic relevance for {paper_id}: {economic_relevance}")
+    forecasting_contribution = _optional_str(raw.get("forecasting_contribution"))
+    if (
+        forecasting_contribution
+        and forecasting_contribution not in VALID_FORECASTING_CONTRIBUTIONS
+    ):
+        raise ValueError(
+            f"Invalid forecasting contribution for {paper_id}: {forecasting_contribution}"
+        )
+    publication_track = _optional_str(raw.get("publication_track"))
+    if publication_track and publication_track not in VALID_PUBLICATION_TRACKS:
+        raise ValueError(f"Invalid publication track for {paper_id}: {publication_track}")
+    social_hook_potential = _optional_str(raw.get("social_hook_potential"))
+    if social_hook_potential and social_hook_potential not in VALID_SOCIAL_HOOK_POTENTIAL:
+        raise ValueError(
+            f"Invalid social hook potential for {paper_id}: {social_hook_potential}"
+        )
     expected_triage_decision = _optional_str(raw.get("expected_triage_decision"))
     if expected_triage_decision and expected_triage_decision not in VALID_TRIAGE_DECISIONS:
         raise ValueError(
@@ -85,14 +148,20 @@ def _load_label(raw: dict[str, Any]) -> PaperLabel:
     return PaperLabel(
         paper_id=paper_id,
         relevance_label=relevance_label,
+        audience_fit=audience_fit,
+        application_type=application_type,
+        economic_relevance=economic_relevance,
+        forecasting_contribution=forecasting_contribution,
+        publication_track=publication_track,
+        social_hook_potential=social_hook_potential,
         expected_category=expected_category,
         expected_triage_decision=expected_triage_decision,
         expected_editorial_decision=expected_editorial_decision,
         expected_deep_dive=_optional_bool(raw.get("expected_deep_dive")),
         expected_short_mention=_optional_bool(raw.get("expected_short_mention")),
         required_evidence_kinds=tuple(str(kind) for kind in raw.get("required_evidence_kinds", ())),
-        hard_negative=bool(raw.get("hard_negative", False)),
-        high_value=bool(raw.get("high_value", False)),
+        hard_negative=_optional_bool(raw.get("hard_negative", False)) or False,
+        high_value=_optional_bool(raw.get("high_value", False)) or False,
     )
 
 
@@ -116,4 +185,6 @@ def _optional_str(value: Any) -> str | None:
 def _optional_bool(value: Any) -> bool | None:
     if value is None:
         return None
-    return bool(value)
+    if isinstance(value, bool):
+        return value
+    raise ValueError(f"Expected boolean value, got {value!r}")

@@ -11,9 +11,9 @@ ETS4 has completed the seven implementation phases in `docs/ROADMAP.md` and is
 now in post-roadmap pilot validation.
 
 The active milestone is `docs/PILOT_VALIDATION.md`: validate the system on real
-sources, create a human-labeled benchmark, evaluate the fake-provider baseline,
-and decide whether the next investment should be retrieval, review providers,
-benchmark expansion, or website integration.
+sources, evaluate accepted practitioner/applied forecasting labels, and decide
+whether the next investment should be retrieval, review providers, benchmark
+expansion, or website integration.
 
 ## Latest Implementation State
 
@@ -38,6 +38,9 @@ benchmark expansion, or website integration.
   accepting or inventing labels.
 - `ets4 evaluate` rejects draft benchmark labels unless each label is marked
   `label_status: "accepted"`.
+- Benchmark labels now include practitioner/applied rubric fields: audience
+  fit, application type, economic relevance, forecasting contribution,
+  publication track, and social hook potential.
 
 ## Current Pilot Position
 
@@ -65,7 +68,8 @@ block benchmark labeling unless that source is editorially important.
 
 ## Latest Evaluation
 
-The first accepted benchmark subset was evaluated on 2026-06-22.
+The first accepted benchmark subset was evaluated on 2026-06-22 and revised
+under the practitioner/applied forecasting rubric.
 
 - labels file: `exports/benchmarks/run-960b75015cc3.initial-subset.json`
 - benchmark version: `run-960b75015cc3-human-v1-subset`
@@ -82,11 +86,16 @@ The first accepted benchmark subset was evaluated on 2026-06-22.
 - editorial decision accuracy: 0.0
 - deep-dive selection accuracy: 0.5
 - short-mention selection accuracy: 0.8333
+- publication-track accuracy: 0.1667
+- publication-track distribution: 1 applied note, 1 methods watch, 4 rejects
 
 Interpretation: the fake-provider baseline preserves citation validity on the
 accepted subset, but it does not match human editorial labels well enough for
-real use. The next implementation work should make benchmark inspection and
-error analysis easier before adding a real provider.
+real use. Under the practitioner/applied rubric it promotes too many papers into
+deep-dive-like treatment, especially methods/curiosity papers that should be
+short applied notes, methods watch, or rejects. The next implementation work
+should make benchmark inspection and error analysis easier before adding a real
+provider.
 
 ## Next Recommended Task
 

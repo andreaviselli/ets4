@@ -6,15 +6,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-
-VALID_RELEVANCE_LABELS = ("directly_relevant", "paper_of_interest", "not_relevant", "borderline")
-VALID_TRIAGE_DECISIONS = ("assign_reviewers", "borderline", "reject")
-VALID_EDITORIAL_DECISIONS = (
-    "full_deep_dive",
-    "short_mention",
-    "watchlist",
-    "needs_human_adjudication",
-    "reject",
+from .labels import (
+    VALID_APPLICATION_TYPES,
+    VALID_AUDIENCE_FITS,
+    VALID_ECONOMIC_RELEVANCE,
+    VALID_EDITORIAL_DECISIONS,
+    VALID_FORECASTING_CONTRIBUTIONS,
+    VALID_PUBLICATION_TRACKS,
+    VALID_RELEVANCE_LABELS,
+    VALID_SOCIAL_HOOK_POTENTIAL,
+    VALID_TRIAGE_DECISIONS,
 )
 
 
@@ -59,9 +60,21 @@ def create_benchmark_template(
                 "Keep only evidence kinds that should be required for this paper's review. "
                 "Use an empty list for triage-only or unavailable full-text examples."
             ),
+            "rubric": (
+                "The default ETS4 product is a practitioner/applied economic forecasting "
+                "digest. Use methods_watch for academically interesting methods that are "
+                "not yet strong applied recommendations. Social hook potential is secondary "
+                "metadata, not a reason to promote a paper."
+            ),
         },
         "label_options": {
             "relevance_label": list(VALID_RELEVANCE_LABELS),
+            "audience_fit": sorted(VALID_AUDIENCE_FITS),
+            "application_type": sorted(VALID_APPLICATION_TYPES),
+            "economic_relevance": sorted(VALID_ECONOMIC_RELEVANCE),
+            "forecasting_contribution": sorted(VALID_FORECASTING_CONTRIBUTIONS),
+            "publication_track": sorted(VALID_PUBLICATION_TRACKS),
+            "social_hook_potential": sorted(VALID_SOCIAL_HOOK_POTENTIAL),
             "expected_triage_decision": list(VALID_TRIAGE_DECISIONS),
             "expected_editorial_decision": list(VALID_EDITORIAL_DECISIONS),
         },
@@ -225,6 +238,12 @@ def _paper_template(row: sqlite3.Row) -> dict[str, Any]:
         "abstract": row["abstract"],
         "human_notes": "",
         "relevance_label": None,
+        "audience_fit": None,
+        "application_type": None,
+        "economic_relevance": None,
+        "forecasting_contribution": None,
+        "publication_track": None,
+        "social_hook_potential": None,
         "expected_category": None,
         "expected_triage_decision": None,
         "expected_editorial_decision": None,
@@ -271,6 +290,12 @@ def _untriaged_paper_template(row: sqlite3.Row) -> dict[str, Any]:
         "abstract": row["abstract"],
         "human_notes": "",
         "relevance_label": None,
+        "audience_fit": None,
+        "application_type": None,
+        "economic_relevance": None,
+        "forecasting_contribution": None,
+        "publication_track": None,
+        "social_hook_potential": None,
         "expected_category": None,
         "expected_triage_decision": None,
         "expected_editorial_decision": None,

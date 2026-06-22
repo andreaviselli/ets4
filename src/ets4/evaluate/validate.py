@@ -7,13 +7,24 @@ from pathlib import Path
 from typing import Any
 
 from .labels import (
+    VALID_APPLICATION_TYPES,
+    VALID_AUDIENCE_FITS,
+    VALID_ECONOMIC_RELEVANCE,
     VALID_EDITORIAL_DECISIONS,
+    VALID_FORECASTING_CONTRIBUTIONS,
+    VALID_PUBLICATION_TRACKS,
     VALID_RELEVANCE_LABELS,
+    VALID_SOCIAL_HOOK_POTENTIAL,
     VALID_TRIAGE_DECISIONS,
 )
 
 MINIMUM_LABEL_FIELDS = (
     "relevance_label",
+    "audience_fit",
+    "application_type",
+    "economic_relevance",
+    "forecasting_contribution",
+    "publication_track",
     "expected_triage_decision",
     "expected_deep_dive",
     "expected_short_mention",
@@ -24,6 +35,7 @@ MINIMUM_LABEL_FIELDS = (
 RECOMMENDED_LABEL_FIELDS = (
     "expected_category",
     "expected_editorial_decision",
+    "social_hook_potential",
 )
 
 
@@ -247,6 +259,42 @@ def _invalid_fields(paper: dict[str, Any]) -> tuple[str, ...]:
         VALID_RELEVANCE_LABELS - {"borderline"}
     ):
         invalid.append("expected_category")
+    _append_invalid_choice(
+        invalid,
+        paper=paper,
+        field="audience_fit",
+        valid_values=VALID_AUDIENCE_FITS,
+    )
+    _append_invalid_choice(
+        invalid,
+        paper=paper,
+        field="application_type",
+        valid_values=VALID_APPLICATION_TYPES,
+    )
+    _append_invalid_choice(
+        invalid,
+        paper=paper,
+        field="economic_relevance",
+        valid_values=VALID_ECONOMIC_RELEVANCE,
+    )
+    _append_invalid_choice(
+        invalid,
+        paper=paper,
+        field="forecasting_contribution",
+        valid_values=VALID_FORECASTING_CONTRIBUTIONS,
+    )
+    _append_invalid_choice(
+        invalid,
+        paper=paper,
+        field="publication_track",
+        valid_values=VALID_PUBLICATION_TRACKS,
+    )
+    _append_invalid_choice(
+        invalid,
+        paper=paper,
+        field="social_hook_potential",
+        valid_values=VALID_SOCIAL_HOOK_POTENTIAL,
+    )
     triage_decision = paper.get("expected_triage_decision")
     if triage_decision is not None and triage_decision not in VALID_TRIAGE_DECISIONS:
         invalid.append("expected_triage_decision")
@@ -260,6 +308,18 @@ def _invalid_fields(paper: dict[str, Any]) -> tuple[str, ...]:
     if evidence_kinds is not None and not _string_list(evidence_kinds):
         invalid.append("required_evidence_kinds")
     return tuple(invalid)
+
+
+def _append_invalid_choice(
+    invalid: list[str],
+    *,
+    paper: dict[str, Any],
+    field: str,
+    valid_values: set[str],
+) -> None:
+    value = paper.get(field)
+    if value is not None and value not in valid_values:
+        invalid.append(field)
 
 
 def _context_value(paper: dict[str, Any], key: str) -> Any:

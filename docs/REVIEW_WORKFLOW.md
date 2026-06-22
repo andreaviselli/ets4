@@ -4,6 +4,19 @@ The review workflow exists to make editorial judgment explicit. ETS4 should not
 select papers because a single model produced a high score. A paper should be
 selected because it passes a sequence of evidence-backed gates.
 
+## Editorial Product
+
+ETS4's default product is a practitioner/applied economic forecasting digest.
+It should prioritize papers that help readers forecast, nowcast, evaluate
+forecasts, monitor risk, stress-test scenarios, or make decisions in economic,
+financial, policy, energy, business, or market settings.
+
+This is intentionally narrower than a curiosity feed. A paper can be interesting
+and still be rejected for the main product. Academic novelty belongs in a
+secondary `methods_watch` lane unless the paper shows plausible applied value.
+Social-media appeal is useful for dissemination, but it is not a selection
+criterion by itself.
+
 ## Editorial Roles
 
 ETS4 should model a small editorial panel, not a single monolithic reviewer.
@@ -98,7 +111,7 @@ Gate rule:
 
 ### Gate 1: Desk Screening
 
-Question: is this plausibly relevant to economic time-series forecasting?
+Question: is this plausibly useful for applied economic forecasting?
 
 Inputs:
 
@@ -112,6 +125,14 @@ Required output:
 
 - `in_scope`: boolean
 - `scope_reason`
+- `audience_fit`: practitioner, applied_researcher, academic_methods, or out_of_scope
+- `application_type`: forecasting, nowcasting, scenario_analysis,
+  risk_monitoring, forecast_evaluation, method_only, descriptive, trading, or
+  out_of_scope
+- `economic_relevance`: high, medium, low, or absent
+- `forecasting_contribution`: genuine_application, standard_application,
+  novel_method, indirect, or absent
+- `publication_track`: deep_dive, applied_note, methods_watch, or reject
 - `forecasting_signal`: explicit, implied, absent
 - `economic_signal`: explicit, implied, absent
 - `desk_decision`: reject, borderline, assign_reviewers
@@ -121,6 +142,9 @@ Gate rule:
 
 - Reject if forecasting signal is absent.
 - Reject if relevance is only causal, descriptive, or purely theoretical.
+- Reject or route to `methods_watch` if the work is mostly curiosity,
+  methodology, or social-media-friendly novelty without applied forecasting
+  value.
 - Send borderline cases to full review rather than forcing a confident label.
 
 ### Gate 2: Editorial Budget and Selection Policy

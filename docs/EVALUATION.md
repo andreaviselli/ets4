@@ -29,6 +29,12 @@ ETS4 currently supports JSON benchmark files with this shape:
     {
       "paper_id": "paper-1",
       "relevance_label": "directly_relevant",
+      "audience_fit": "practitioner",
+      "application_type": "forecasting",
+      "economic_relevance": "high",
+      "forecasting_contribution": "genuine_application",
+      "publication_track": "deep_dive",
+      "social_hook_potential": "medium",
       "expected_category": "directly_relevant",
       "expected_triage_decision": "assign_reviewers",
       "expected_editorial_decision": "full_deep_dive",
@@ -89,6 +95,17 @@ Use benchmark labels to describe the human editor's expected judgment, not the
 system's current output. System context in a benchmark template is useful
 evidence for labeling, but it should not be copied blindly into gold labels.
 
+ETS4's default editorial product is a practitioner/applied forecasting digest.
+The core question is not "is this paper interesting?" It is:
+
+> Does this paper help someone forecast, nowcast, evaluate forecasts, monitor
+> risk, stress-test scenarios, or make decisions in an economic, financial,
+> policy, energy, business, or market setting?
+
+Academic novelty and social-media curiosity are secondary. They can justify a
+`methods_watch` or a hook for dissemination, but they should not turn a weakly
+applied paper into a main recommendation.
+
 Set `label_status` to `accepted` only after human inspection. Leave it as
 `needs_human_label` while a label is draft, incomplete, or only model-suggested.
 
@@ -147,6 +164,64 @@ Examples:
 "relevance_label": "directly_relevant",
 "expected_category": "directly_relevant"
 ```
+
+### Practitioner/Applied Rubric Fields
+
+These fields make the editorial product explicit.
+
+`audience_fit`:
+
+- `practitioner`: useful for forecasters, analysts, policymakers, risk managers,
+  or other applied users.
+- `applied_researcher`: useful for applied academic or institutional researchers.
+- `academic_methods`: mainly methodological, with possible future transfer.
+- `out_of_scope`: not useful for the ETS4 applied forecasting product.
+
+`application_type`:
+
+- `forecasting`
+- `nowcasting`
+- `scenario_analysis`
+- `risk_monitoring`
+- `forecast_evaluation`
+- `method_only`
+- `descriptive`
+- `trading`
+- `out_of_scope`
+
+`economic_relevance`:
+
+- `high`: directly macro, financial, policy, energy, business, or market relevant.
+- `medium`: adjacent or transferable with clear adaptation.
+- `low`: weakly connected or niche.
+- `absent`: no meaningful economic forecasting relevance.
+
+`forecasting_contribution`:
+
+- `genuine_application`: real forecasting/nowcasting/risk/scenario task with
+  usable evidence.
+- `standard_application`: forecasting application exists, but contribution is
+  routine or low-impact.
+- `novel_method`: method is interesting, but applied value is not yet proven.
+- `indirect`: useful context, dataset, scenario, or insight, but not a
+  forecasting contribution.
+- `absent`: no forecasting contribution.
+
+`publication_track`:
+
+- `deep_dive`: main applied forecasting recommendation.
+- `applied_note`: short applied note; useful but not a main feature.
+- `methods_watch`: academically interesting or potentially transferable, but
+  not yet a practitioner recommendation.
+- `reject`: out of scope, too weak, too routine, or not useful enough.
+
+`social_hook_potential`:
+
+- `high`
+- `medium`
+- `low`
+
+This is dissemination metadata only. It should not override applied usefulness.
 
 ### `expected_triage_decision`
 

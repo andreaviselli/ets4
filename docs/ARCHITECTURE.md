@@ -1,10 +1,11 @@
 # ETS4 Architecture
 
-ETS4 is an evidence-grounded editorial review engine for economic time-series
-forecasting research. It should not be designed as a newsletter script. The core
-product is a reproducible review system that can explain why a paper was
-selected, what evidence supports the selection, where the assessment is weak,
-and whether the review process is improving over time.
+ETS4 is an evidence-grounded editorial review engine for applied economic
+forecasting research. It should not be designed as a newsletter script or broad
+curiosity feed. The core product is a reproducible review system that can
+explain why a paper was selected for a practitioner/applied forecasting audience,
+what evidence supports the selection, where the assessment is weak, and whether
+the review process is improving over time.
 
 ## Product Boundary
 

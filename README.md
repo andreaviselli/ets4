@@ -1,9 +1,9 @@
 # ETS4
 
-ETS4 is an editorial review system for economic time-series forecasting research.
+ETS4 is an editorial review system for applied economic forecasting research.
 Its role is to collect candidate papers, run evidence-grounded editorial review,
-evaluate reviewer quality, and export human-reviewable draft pages for a separate
-publishing repository.
+evaluate reviewer quality, and export human-reviewable draft pages for a
+practitioner/applied forecasting product in a separate publishing repository.
 
 ## Current State
 

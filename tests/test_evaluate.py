@@ -26,6 +26,8 @@ def test_load_benchmark_fixture() -> None:
     assert benchmark.version == "phase5-fixture-v1"
     assert len(benchmark.labels) == 2
     assert benchmark.labels[0].paper_id == "paper-1"
+    assert benchmark.labels[0].audience_fit == "practitioner"
+    assert benchmark.labels[0].publication_track == "deep_dive"
     assert benchmark.labels[1].hard_negative is True
 
 
@@ -42,6 +44,11 @@ def test_evaluate_run_persists_metrics_and_items(tmp_path) -> None:
         assert result.metrics["evidence"]["required_kind_coverage"] == 1.0
         assert result.metrics["review"]["editorial_decision_accuracy"] == 1.0
         assert result.metrics["selection"]["deep_dive_accuracy"] == 1.0
+        assert result.metrics["rubric"]["publication_track_accuracy"] == 1.0
+        assert result.metrics["rubric"]["audience_fit_distribution"] == {
+            "out_of_scope": 1,
+            "practitioner": 1,
+        }
         assert conn.execute("SELECT COUNT(*) FROM evaluation_runs").fetchone()[0] == 1
         assert conn.execute("SELECT COUNT(*) FROM evaluation_items").fetchone()[0] == 2
 
@@ -113,6 +120,8 @@ def test_validate_benchmark_template_reports_draft_incomplete_labels(tmp_path) -
     assert result.ready_for_evaluation is False
     assert result.paper_statuses[0].label_status == "needs_human_label"
     assert "relevance_label" in result.paper_statuses[0].missing_fields
+    assert "audience_fit" in result.paper_statuses[0].missing_fields
+    assert "publication_track" in result.paper_statuses[0].missing_fields
 
 
 def test_create_benchmark_subset_preserves_draft_labels(tmp_path) -> None:
@@ -133,6 +142,8 @@ def test_create_benchmark_subset_preserves_draft_labels(tmp_path) -> None:
     assert len(payload["papers"]) == 1
     assert payload["papers"][0]["label_status"] == "needs_human_label"
     assert payload["papers"][0]["relevance_label"] is None
+    assert payload["papers"][0]["audience_fit"] is None
+    assert payload["papers"][0]["publication_track"] is None
 
 
 def test_cli_benchmark_template_writes_editable_json(tmp_path) -> None:

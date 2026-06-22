@@ -63,11 +63,21 @@ def evaluate_paper(conn: sqlite3.Connection, *, run_id: str, label: PaperLabel) 
     reviewer_scores = [float(row["score"]) for row in reports]
     reviewer_recommendations = {str(row["recommendation"]) for row in reports}
     memo = _json_dict(decision["memo_json"]) if decision else {}
+    system_publication_track = _system_publication_track(
+        decision["decision"] if decision else None,
+        selections=selections,
+    )
 
     return {
         "paper_id": label.paper_id,
         "label": {
             "relevance_label": label.relevance_label,
+            "audience_fit": label.audience_fit,
+            "application_type": label.application_type,
+            "economic_relevance": label.economic_relevance,
+            "forecasting_contribution": label.forecasting_contribution,
+            "publication_track": label.publication_track,
+            "social_hook_potential": label.social_hook_potential,
             "hard_negative": label.hard_negative,
             "high_value": label.high_value,
         },
@@ -123,6 +133,11 @@ def evaluate_paper(conn: sqlite3.Connection, *, run_id: str, label: PaperLabel) 
             "present": decision is not None,
             "decision": decision["decision"] if decision else None,
             "deep_dive_score": float(decision["deep_dive_score"]) if decision else None,
+            "publication_track": system_publication_track,
+            "publication_track_correct": _equals_optional(
+                system_publication_track,
+                label.publication_track,
+            ),
             "decision_correct": _equals_optional(
                 decision["decision"] if decision else None,
                 label.expected_editorial_decision,
@@ -207,6 +222,29 @@ def aggregate_metrics(items: list[dict[str, Any]]) -> dict[str, Any]:
                 item["selection"]["short_mention_correct"] for item in items
             ),
         },
+        "rubric": {
+            "publication_track_accuracy": _mean_optional(
+                item["editorial"]["publication_track_correct"] for item in items
+            ),
+            "audience_fit_distribution": _distribution(
+                item["label"]["audience_fit"] for item in items
+            ),
+            "application_type_distribution": _distribution(
+                item["label"]["application_type"] for item in items
+            ),
+            "economic_relevance_distribution": _distribution(
+                item["label"]["economic_relevance"] for item in items
+            ),
+            "forecasting_contribution_distribution": _distribution(
+                item["label"]["forecasting_contribution"] for item in items
+            ),
+            "publication_track_distribution": _distribution(
+                item["label"]["publication_track"] for item in items
+            ),
+            "social_hook_potential_distribution": _distribution(
+                item["label"]["social_hook_potential"] for item in items
+            ),
+        },
     }
 
 
@@ -236,6 +274,25 @@ def _equals_optional(actual: Any, expected: Any) -> bool | None:
     return actual == expected
 
 
+def _system_publication_track(
+    editorial_decision: Any,
+    *,
+    selections: dict[str, int],
+) -> str | None:
+    decision = str(editorial_decision) if editorial_decision is not None else None
+    if decision == "full_deep_dive" or "deep_dive_draft" in selections:
+        return "deep_dive"
+    if decision == "short_mention" or "short_mention" in selections:
+        return "applied_note"
+    if decision in {"watchlist", "needs_human_adjudication"}:
+        return "methods_watch"
+    if decision == "reject":
+        return "reject"
+    if not selections:
+        return "reject"
+    return None
+
+
 def _ratio(numerator: int | float, denominator: int | float) -> float | None:
     if not denominator:
         return None
@@ -247,6 +304,16 @@ def _mean_optional(values: Any) -> float | None:
     if not present:
         return None
     return round(sum(present) / len(present), 4)
+
+
+def _distribution(values: Any) -> dict[str, int]:
+    distribution: dict[str, int] = {}
+    for value in values:
+        if value is None:
+            continue
+        key = str(value)
+        distribution[key] = distribution.get(key, 0) + 1
+    return dict(sorted(distribution.items()))
 
 
 def _precision(*, selected: list[bool], positives: list[bool]) -> float | None:

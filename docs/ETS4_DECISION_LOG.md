@@ -4,6 +4,32 @@ This file records durable architectural and editorial decisions. It is not a
 changelog. Add entries when a future agent or human editor would need the
 rationale, consequences, or reversal conditions.
 
+## 2026-06-22: Make Practitioner/Applied Forecasting the Default Product
+
+Decision: ETS4's default editorial product is a practitioner/applied economic
+forecasting digest, not a broad curiosity feed.
+
+Context: The first accepted benchmark subset showed that a vague
+"interesting forecasting-adjacent papers" scope mixes practitioner applications,
+academic methods, and general curiosity. That makes evaluation ambiguous and
+risks confusing readers.
+
+Alternatives considered:
+
+- Broad curiosity feed optimized for social-media dissemination.
+- Academic methods watch as the main product.
+- Practitioner/applied forecasting digest with a secondary methods-watch lane.
+
+Consequence: Benchmark labels now include explicit rubric fields for audience
+fit, application type, economic relevance, forecasting contribution,
+publication track, and social hook potential. Social hook potential is
+dissemination metadata only; it should not promote weakly applied work into the
+main track.
+
+Reversal condition: A future editorial decision may create a separate curiosity
+or academic-methods product, but that should be represented as a distinct
+publication track or issue type rather than diluting the default product.
+
 ## 2026-06-05: Treat Phase 7 Completion as a Validation Gate, Not Production
 
 Decision: Completing the seven implementation phases does not make ETS4
