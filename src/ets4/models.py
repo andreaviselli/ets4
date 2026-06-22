@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -97,20 +98,19 @@ class FakeModelProvider:
         "predictive",
         "nowcast",
         "nowcasting",
+        "scenario",
+        "scenarios",
+        "stress-test",
+        "stress testing",
         "time series",
         "probabilistic",
     )
     economic_terms = (
         "economic",
         "economy",
-        "macro",
         "macroeconomic",
         "inflation",
         "gdp",
-        "energy",
-        "oil",
-        "gas",
-        "electricity",
         "monetary",
         "policy",
         "central bank",
@@ -123,6 +123,14 @@ class FakeModelProvider:
         "labor",
         "prices",
         "scenario",
+    )
+    adjacent_economic_terms = (
+        "commodity",
+        "commodities",
+        "electricity",
+        "energy",
+        "gas",
+        "oil",
     )
     financial_method_terms = (
         "asset",
@@ -161,11 +169,12 @@ class FakeModelProvider:
 
     def triage(self, title: str, abstract: str, source_name: str = "") -> TriageResult:
         text = f"{title} {abstract} {source_name}".lower()
-        has_forecasting = any(term in text for term in self.forecasting_terms)
-        has_economic = any(term in text for term in self.economic_terms)
-        has_financial_method = any(term in text for term in self.financial_method_terms)
-        has_finance_reject = any(term in text for term in self.finance_reject_terms)
-        has_hard_negative = any(term in text for term in self.hard_negative_terms)
+        has_forecasting = _contains_any_term(text, self.forecasting_terms)
+        has_economic = _contains_any_term(text, self.economic_terms)
+        has_adjacent_economic = _contains_any_term(text, self.adjacent_economic_terms)
+        has_financial_method = _contains_any_term(text, self.financial_method_terms)
+        has_finance_reject = _contains_any_term(text, self.finance_reject_terms)
+        has_hard_negative = _contains_any_term(text, self.hard_negative_terms)
 
         if has_hard_negative and not has_forecasting:
             return TriageResult(
@@ -203,7 +212,7 @@ class FakeModelProvider:
                 reason="Detected explicit forecasting and economic signals.",
             )
 
-        if has_forecasting and has_financial_method:
+        if has_forecasting and (has_financial_method or has_adjacent_economic):
             return TriageResult(
                 decision="borderline",
                 category_hint="paper_of_interest",
@@ -318,12 +327,14 @@ class FakeModelProvider:
             adjusted_score -= 0.5
         paper = dossier.get("paper", {})
         paper_text = f"{paper.get('title', '')} {paper.get('abstract', '')}".lower()
-        has_forecasting = any(term in paper_text for term in self.forecasting_terms)
-        has_economic = any(term in paper_text for term in self.economic_terms)
-        has_financial_method = any(term in paper_text for term in self.financial_method_terms)
+        has_forecasting = _contains_any_term(paper_text, self.forecasting_terms)
+        has_economic = _contains_any_term(paper_text, self.economic_terms)
+        has_adjacent_economic = _contains_any_term(paper_text, self.adjacent_economic_terms)
+        has_financial_method = _contains_any_term(paper_text, self.financial_method_terms)
         track_fit = _track_fit(
             has_forecasting=has_forecasting,
             has_economic=has_economic,
+            has_adjacent_economic=has_adjacent_economic,
             has_financial_method=has_financial_method,
         )
 
@@ -392,15 +403,25 @@ def _track_fit(
     *,
     has_forecasting: bool,
     has_economic: bool,
+    has_adjacent_economic: bool,
     has_financial_method: bool,
 ) -> str:
     if has_forecasting and has_economic:
         return "deep_dive"
     if has_economic:
         return "applied_note"
-    if has_forecasting and has_financial_method:
+    if has_forecasting and (has_financial_method or has_adjacent_economic):
         return "methods_watch"
     return "reject"
+
+
+def _contains_any_term(text: str, terms: tuple[str, ...]) -> bool:
+    return any(_contains_term(text, term) for term in terms)
+
+
+def _contains_term(text: str, term: str) -> bool:
+    pattern = rf"(?<![A-Za-z0-9]){re.escape(term.lower())}(?![A-Za-z0-9])"
+    return re.search(pattern, text) is not None
 
 
 def _majority_view(reports: list[dict[str, Any]]) -> str:

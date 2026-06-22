@@ -79,6 +79,7 @@ ets4 review --run-id run-example123
 ets4 benchmark-template --run-id run-example123
 ets4 benchmark-status --labels path/to/benchmark.json
 ets4 evaluate --run-id run-example123 --labels path/to/benchmark.json
+ets4 replay-baseline --source-run-id run-example123 --labels path/to/benchmark.json --errors
 ets4 export --run-id run-example123
 ets4 archive --run-id run-example123
 ```
@@ -131,6 +132,11 @@ core triage, evidence, review, and selection metrics. The test fixture at
 Add `--errors` to list per-paper mismatches between human labels and ETS4
 outputs and summarize failure types; `--json` includes the same error analysis
 in machine-readable form.
+
+`replay-baseline` creates a new evaluation-mode run from the papers triaged in
+an existing source run, using the current configured provider and any stored
+evidence already in SQLite. It does not recollect sources or publish artifacts.
+Pass `--labels` to evaluate the replay run immediately.
 
 `export` writes an issue-level draft page and companion internal notes under
 `exports/{issue_id}/`. Exported public pages always include `draft: true`.

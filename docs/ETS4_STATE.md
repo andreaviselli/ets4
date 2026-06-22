@@ -47,6 +47,10 @@ expansion, or website integration.
   labels and ETS4 outputs for triage, category, editorial decisions, selection,
   publication track, and required evidence coverage. `--json` includes the same
   report in a `mismatches` array.
+- `ets4 replay-baseline` creates a new evaluation-mode run from papers triaged
+  in an existing source run, reuses stored evidence, and can evaluate accepted
+  labels immediately. This supports deterministic baseline comparison without
+  recollecting sources.
 
 ## Current Pilot Position
 
@@ -94,41 +98,52 @@ under the practitioner/applied forecasting rubric.
 - short-mention selection accuracy: 0.8333
 - publication-track accuracy: 0.1667
 - publication-track distribution: 2 applied notes, 4 rejects
-- latest error-report verification: `ets4 evaluate --errors` produced
-  evaluation run `eval-7800fac4e1262f30`, 23 per-paper mismatches, and grouped
-  failure types from the accepted subset in the ignored pilot SQLite database
+- latest deterministic replay run: `run-871a316d887d`
+- latest replay evaluation run: `eval-5330c084189437a2`
+- replay triaged papers: 21
+- replay selected for full review: 7
+- replay reviewed papers: 7
+- replay review errors: 0
+- replay triage decision accuracy: 0.8333
+- replay selected-paper precision: 0.75
+- replay relevant-paper recall: 0.75
+- replay required evidence-kind coverage: 0.3611
+- replay editorial decision accuracy: 0.1667
+- replay deep-dive selection accuracy: 0.8333
+- replay publication-track accuracy: 0.3333
+- replay per-paper mismatches: 18
 
 Interpretation: the fake-provider baseline preserves citation validity on the
-accepted subset, but it does not match human editorial labels well enough for
-real use. The revised labels improve triage/category metrics, but the baseline
-still promotes too many papers into deep-dive-like treatment when the
-practitioner/applied rubric expects applied notes or rejects. Benchmark
-inspection and error reporting are now available through the `--errors`
-evaluation option. The source code now includes a more conservative
-fake-provider baseline, but the stored pilot run has not yet been rerun with
-that updated baseline.
+accepted subset. The replayed baseline improved triage decision accuracy,
+deep-dive selection accuracy, publication-track accuracy, and total mismatch
+count compared with the stored pilot evaluation. Remaining failures now
+concentrate in publication-track/editorial calibration, short-mention
+selection, missing review outputs for rejected or unselected papers, and
+evidence-kind extraction gaps. The current result is still not strong enough for
+real-provider adoption or website integration.
 
 ## Next Recommended Task
 
-Regenerate an evaluation baseline after the fake-provider track-fit changes,
-then compare it with the stored pilot metrics before deciding whether to improve
-retrieval, expand benchmark labels, or add a real provider.
+Improve publication-track and editorial calibration for the practitioner/applied
+digest before adding a real provider.
 
 Suggested scope:
 
-- run a fresh deterministic pilot or replay workflow using the updated fake
-  provider
-- evaluate the accepted subset with `ets4 evaluate --errors`
-- compare the grouped failure types against the stored pilot result
+- separate `methods_watch`/watchlist records from publishable applied notes in
+  evaluation and selection
+- make scenario/evaluation papers route toward applied notes unless they have a
+  direct forecasting contribution
+- preserve or improve the latest replay metrics on the accepted subset
 - keep accepted human labels as ignored local artifacts unless a curated test
   fixture is intentionally created
-- do not add a real model provider until the failure report has been reviewed
+- do not add a real model provider until editorial/publication-track accuracy
+  improves on accepted labels
 
 Suggested command pattern:
 
 ```bash
-ets4 evaluate \
-  --run-id run-960b75015cc3 \
+ets4 replay-baseline \
+  --source-run-id run-960b75015cc3 \
   --labels exports/benchmarks/run-960b75015cc3.initial-subset.json \
   --errors
 ```

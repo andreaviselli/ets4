@@ -51,6 +51,18 @@ def test_fake_provider_rejects_trading_risk_without_applied_economic_fit() -> No
     assert result.category_hint == "not_relevant"
 
 
+def test_fake_provider_routes_economic_scenario_paper_to_review() -> None:
+    provider = FakeModelProvider()
+
+    result = provider.triage(
+        "Alternative Scenarios at the Federal Reserve",
+        "We evaluate central bank scenarios for policy and reserves.",
+    )
+
+    assert result.decision == "assign_reviewers"
+    assert result.category_hint == "directly_relevant"
+
+
 def test_fake_handling_editor_caps_financial_method_paper() -> None:
     provider = FakeModelProvider()
     dossier = {

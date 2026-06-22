@@ -3,7 +3,7 @@ from dataclasses import replace
 
 from ets4.config import load_config
 from ets4.manifest import create_manifest
-from ets4.selection import select_full_review_candidates
+from ets4.selection import select_full_review_candidates, select_publication_candidates
 from ets4.store.db import connect, init_db, insert_manifest, upsert_paper, upsert_source
 
 
@@ -69,3 +69,76 @@ def test_selection_respects_full_review_budget(tmp_path) -> None:
             (manifest.run_id,),
         ).fetchall()
         assert [row["paper_id"] for row in ranks[:2]] == ["paper-1", "paper-2"]
+
+
+def test_publication_selection_does_not_publish_watchlist_as_short_mention(tmp_path) -> None:
+    base_config = load_config("config/feeds.example.toml")
+    config = replace(
+        base_config,
+        issue=replace(base_config.issue, max_deep_dive_drafts=0, max_short_mentions=5),
+    )
+    manifest = create_manifest(config, date(2026, 6, 8))
+
+    with connect(tmp_path / "ets4.sqlite") as conn:
+        init_db(conn)
+        insert_manifest(conn, manifest)
+        for paper_id, title, decision in (
+            ("paper-1", "Applied forecast note", "short_mention"),
+            ("paper-2", "Method watchlist item", "watchlist"),
+        ):
+            upsert_paper(
+                conn,
+                paper_id=paper_id,
+                title=title,
+                canonical_url=f"https://example.test/{paper_id}",
+                abstract="Forecasting GDP.",
+            )
+            conn.execute(
+                """
+                INSERT INTO review_dossiers (
+                    id, paper_id, run_id, document_id, evidence_count, dossier_json, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    f"dossier-{paper_id}",
+                    paper_id,
+                    manifest.run_id,
+                    None,
+                    6,
+                    "{}",
+                    "ok",
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO editorial_decisions (
+                    id, paper_id, run_id, dossier_id, provider, decision,
+                    deep_dive_score, confidence, memo_json, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    f"decision-{paper_id}",
+                    paper_id,
+                    manifest.run_id,
+                    f"dossier-{paper_id}",
+                    "fake",
+                    decision,
+                    6.0,
+                    0.7,
+                    "{}",
+                    "ok",
+                ),
+            )
+
+        selection = select_publication_candidates(conn, run_id=manifest.run_id, config=config)
+
+        assert selection.deep_dive_selected_count == 0
+        assert selection.short_mention_selected_count == 1
+        short_rows = conn.execute(
+            """
+            SELECT paper_id FROM candidate_selections
+            WHERE run_id = ? AND selection_stage = 'short_mention'
+            """,
+            (manifest.run_id,),
+        ).fetchall()
+        assert [row["paper_id"] for row in short_rows] == ["paper-1"]

@@ -37,6 +37,7 @@ def select_full_review_candidates(
     *,
     run_id: str,
     config: AppConfig,
+    update_paper_status: bool = True,
 ) -> SelectionResult:
     rows = conn.execute(
         """
@@ -98,10 +99,11 @@ def select_full_review_candidates(
                 _selection_reason(row, forced),
             ),
         )
-        conn.execute(
-            "UPDATE papers SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-            ("selected_for_review", row["id"]),
-        )
+        if update_paper_status:
+            conn.execute(
+                "UPDATE papers SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                ("selected_for_review", row["id"]),
+            )
 
     conn.commit()
     return SelectionResult(selected_count=len(selected), candidate_count=len(ranked))
@@ -159,7 +161,7 @@ def select_publication_candidates(
         item
         for item in ranked
         if item[2]["id"] not in deep_ids
-        and item[2]["decision"] in {"short_mention", "watchlist", "full_deep_dive"}
+        and item[2]["decision"] in {"short_mention", "full_deep_dive"}
     ]
     short_selected = short_candidates[: config.issue.max_short_mentions]
 

@@ -59,6 +59,33 @@ Reversal condition: If broader accepted benchmarks show that the stricter fake
 provider suppresses high-value applied forecasting papers, loosen the term
 rules or move this logic into explicit, testable editorial rubric scoring.
 
+## 2026-06-22: Compare Baselines with Replay Before Provider Changes
+
+Decision: ETS4 should use `replay-baseline` to compare deterministic rubric,
+selection, and provider-interface changes against an existing collected run
+before adding or adopting a real model provider.
+
+Context: The first accepted subset was small, and source collection/retrieval
+state is local runtime data. Recollecting sources for every comparison would
+mix model/prompt changes with source drift, while evaluating only the original
+stored run would not measure current code.
+
+Alternatives considered:
+
+- Re-run the full scheduled pipeline from live sources for every comparison.
+- Evaluate only already stored model outputs.
+- Replay triage and review over the same stored papers and evidence, then
+  evaluate the new run against the same accepted labels.
+
+Consequence: `replay-baseline` creates a new evaluation-mode run from papers
+triaged in a source run, reuses stored evidence, and can evaluate accepted
+labels immediately. This keeps accepted labels as ignored local artifacts while
+making deterministic baseline comparisons reproducible inside SQLite.
+
+Reversal condition: If replayed runs diverge from real scheduled runs because
+stored evidence is stale or source mix changes materially, require a fresh
+pilot collection before comparing providers.
+
 ## 2026-06-05: Treat Phase 7 Completion as a Validation Gate, Not Production
 
 Decision: Completing the seven implementation phases does not make ETS4

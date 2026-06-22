@@ -41,6 +41,7 @@ def run_panel_review_for_paper(
     provider: ModelProvider,
     model_name: str = "unknown-review-model",
     retry_config: RetryConfig = RetryConfig(),
+    update_paper_status: bool = True,
 ) -> PanelReviewResult:
     try:
         dossier = build_evidence_dossier(conn, paper_id=paper_id, run_id=run_id)
@@ -134,7 +135,8 @@ def run_panel_review_for_paper(
             memo_json=decision_payload,
             status="ok",
         )
-        _update_paper_status(conn, paper_id=paper_id, decision=decision.decision)
+        if update_paper_status:
+            _update_paper_status(conn, paper_id=paper_id, decision=decision.decision)
         insert_review_event(
             conn,
             paper_id=paper_id,

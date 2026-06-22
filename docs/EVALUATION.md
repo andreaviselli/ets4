@@ -110,6 +110,22 @@ improving evidence-kind extraction.
 For machine-readable inspection, `--json` includes a `mismatches` array with the
 same per-paper fields and an `error_summary` object with the grouped counts.
 
+To compare the current deterministic baseline against an earlier collected run
+without fetching sources again, replay the source run:
+
+```bash
+ets4 replay-baseline \
+  --source-run-id run-example123 \
+  --labels path/to/benchmark.json \
+  --errors
+```
+
+`replay-baseline` creates a new evaluation-mode run, re-triages papers from the
+source run with the current configured provider, reuses stored evidence for
+selected reviews, and can evaluate the replay immediately. Use this before
+adding a real provider so deterministic rubric or selection changes are measured
+against the same accepted labels.
+
 ## Labeling Guide
 
 Use benchmark labels to describe the human editor's expected judgment, not the

@@ -220,6 +220,50 @@ def test_cli_evaluate_errors_prints_mismatch_report(tmp_path, capsys) -> None:
     assert "required_evidence: human=[unavailable_kind]" in output
 
 
+def test_cli_replay_baseline_evaluates_source_run_papers(tmp_path, capsys) -> None:
+    db_path = tmp_path / "ets4.sqlite"
+    run_id = _create_evaluable_run(db_path)
+
+    assert (
+        main(
+            [
+                "--config",
+                "config/feeds.example.toml",
+                "--db",
+                str(db_path),
+                "replay-baseline",
+                "--source-run-id",
+                run_id,
+                "--labels",
+                LABELS_PATH,
+                "--errors",
+            ]
+        )
+        == 0
+    )
+
+    output = capsys.readouterr().out
+    assert f"Source run: {run_id}" in output
+    assert "Replay run: run-" in output
+    assert "Triaged papers: 2" in output
+    assert "Selected for full review: 1/1 eligible candidates" in output
+    assert "Panel-reviewed papers: 1" in output
+    assert "Triage decision accuracy: 1.000" in output
+    assert "Error summary:" in output
+    assert "Mismatches: 0" in output
+    with connect(db_path) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM run_manifests").fetchone()[0] == 2
+        assert conn.execute("SELECT COUNT(*) FROM evaluation_runs").fetchone()[0] == 1
+        replay_run_id = conn.execute(
+            "SELECT run_id FROM run_manifests WHERE run_id != ?",
+            (run_id,),
+        ).fetchone()[0]
+        assert conn.execute(
+            "SELECT COUNT(*) FROM triage_reviews WHERE run_id = ?",
+            (replay_run_id,),
+        ).fetchone()[0] == 2
+
+
 def test_error_summary_dict_groups_by_failure_type() -> None:
     items = (
         {

@@ -129,6 +129,17 @@ After a pilot run and benchmark labeling:
 ets4 evaluate --run-id run-example123 --labels path/to/benchmark.json
 ```
 
+When code changes affect deterministic triage, review, or selection behavior,
+compare the current baseline against the same collected source run before
+adding a real provider:
+
+```bash
+ets4 replay-baseline \
+  --source-run-id run-example123 \
+  --labels path/to/benchmark.json \
+  --errors
+```
+
 Track at least:
 
 - triage decision accuracy

@@ -11,6 +11,7 @@ from .documents import process_document_for_paper
 from .evaluate import (
     BenchmarkValidationResult,
     EvaluationMismatch,
+    EvaluationResult,
     create_benchmark_subset,
     create_benchmark_template,
     evaluate_run,
@@ -21,6 +22,7 @@ from .export.writer import ExportWriteError
 from .manifest import create_manifest
 from .models import get_model_provider
 from .ops.archive import create_archive_bundle
+from .ops.replay import replay_baseline_run
 from .ops.retry import retry_call
 from .ops.usage import record_fake_usage
 from .review.workflow import run_panel_review_for_paper, selected_review_targets
@@ -119,6 +121,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print per-paper mismatches between accepted labels and system outputs.",
     )
     evaluate_parser.set_defaults(func=cmd_evaluate)
+
+    replay_parser = subparsers.add_parser(
+        "replay-baseline",
+        help="Replay triage/review for an existing run's papers using the current provider.",
+    )
+    replay_parser.add_argument("--source-run-id", required=True)
+    replay_parser.add_argument(
+        "--issue-date",
+        help="Issue date for the replay run. Defaults to the source run issue date.",
+    )
+    replay_parser.add_argument(
+        "--labels",
+        help="Optional benchmark labels to evaluate the replay run immediately.",
+    )
+    replay_parser.add_argument(
+        "--errors",
+        action="store_true",
+        help="When --labels is provided, print grouped and per-paper evaluation errors.",
+    )
+    replay_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="When --labels is provided, print full evaluation metric JSON.",
+    )
+    replay_parser.set_defaults(func=cmd_replay_baseline)
 
     benchmark_parser = subparsers.add_parser(
         "benchmark-template",
@@ -529,40 +556,49 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(result.metrics, indent=2, sort_keys=True))
     else:
-        triage = result.metrics["triage"]
-        evidence = result.metrics["evidence"]
-        review = result.metrics["review"]
-        selection = result.metrics["selection"]
-        rubric = result.metrics.get("rubric", {})
-        print(f"Run manifest: {run_id}")
-        print(f"Evaluation run: {result.evaluation_run_id}")
-        print(f"Benchmark: {result.benchmark_version}")
-        print(f"Labeled papers: {result.metrics['labeled_papers']}")
-        print(f"Triage decision accuracy: {_format_metric(triage['decision_accuracy'])}")
-        print(f"Full-review selected precision: {_format_metric(triage['selected_precision'])}")
-        print(f"Relevant-paper recall: {_format_metric(triage['relevant_recall'])}")
-        print(
-            "Hard-negative false-positive rate: "
-            f"{_format_metric(triage['hard_negative_false_positive_rate'])}"
+        _print_evaluation_result(result, include_errors=args.errors)
+    return 0
+
+
+def cmd_replay_baseline(args: argparse.Namespace) -> int:
+    config = load_config(args.config)
+    provider = get_model_provider(config.model_policy.provider)
+    issue_date = date.fromisoformat(args.issue_date) if args.issue_date else None
+    with connect(args.db) as conn:
+        init_db(conn)
+        try:
+            replay = replay_baseline_run(
+                conn,
+                config=config,
+                source_run_id=args.source_run_id,
+                provider=provider,
+                issue_date=issue_date,
+            )
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+        evaluation = (
+            evaluate_run(conn, run_id=replay.replay_run_id, labels_path=args.labels)
+            if args.labels
+            else None
         )
-        print(
-            "Evidence required-kind coverage: "
-            f"{_format_metric(evidence['required_kind_coverage'])}"
-        )
-        print(f"Reviewer citation coverage: {_format_metric(review['citation_coverage'])}")
-        print(f"Invalid citation rate: {_format_metric(review['invalid_citation_rate'])}")
-        print(
-            "Editorial decision accuracy: "
-            f"{_format_metric(review['editorial_decision_accuracy'])}"
-        )
-        print(f"Deep-dive selection accuracy: {_format_metric(selection['deep_dive_accuracy'])}")
-        print(
-            "Publication-track accuracy: "
-            f"{_format_metric(rubric.get('publication_track_accuracy'))}"
-        )
-        if args.errors:
-            _print_evaluation_error_summary(result.metrics["error_summary"])
-            _print_evaluation_mismatches(result.mismatches)
+
+    if args.json and evaluation:
+        print(json.dumps(evaluation.metrics, indent=2, sort_keys=True))
+        return 0
+    print(f"Source run: {replay.source_run_id}")
+    print(f"Replay run: {replay.replay_run_id}")
+    print(f"Triaged papers: {replay.triaged_count}")
+    print(
+        "Selected for full review: "
+        f"{replay.full_review_selected_count}/{replay.full_review_candidate_count} "
+        "eligible candidates"
+    )
+    print(f"Panel-reviewed papers: {replay.reviewed_count}")
+    print(f"Review errors: {replay.review_error_count}")
+    print(f"Selected for deep-dive draft: {replay.deep_dive_selected_count}")
+    print(f"Selected for short mention: {replay.short_mention_selected_count}")
+    if evaluation:
+        _print_evaluation_result(evaluation, include_errors=args.errors)
     return 0
 
 
@@ -1012,6 +1048,43 @@ def _format_metric(value: float | None) -> str:
     if value is None:
         return "n/a"
     return f"{value:.3f}"
+
+
+def _print_evaluation_result(result: EvaluationResult, *, include_errors: bool) -> None:
+    triage = result.metrics["triage"]
+    evidence = result.metrics["evidence"]
+    review = result.metrics["review"]
+    selection = result.metrics["selection"]
+    rubric = result.metrics.get("rubric", {})
+    print(f"Run manifest: {result.run_id}")
+    print(f"Evaluation run: {result.evaluation_run_id}")
+    print(f"Benchmark: {result.benchmark_version}")
+    print(f"Labeled papers: {result.metrics['labeled_papers']}")
+    print(f"Triage decision accuracy: {_format_metric(triage['decision_accuracy'])}")
+    print(f"Full-review selected precision: {_format_metric(triage['selected_precision'])}")
+    print(f"Relevant-paper recall: {_format_metric(triage['relevant_recall'])}")
+    print(
+        "Hard-negative false-positive rate: "
+        f"{_format_metric(triage['hard_negative_false_positive_rate'])}"
+    )
+    print(
+        "Evidence required-kind coverage: "
+        f"{_format_metric(evidence['required_kind_coverage'])}"
+    )
+    print(f"Reviewer citation coverage: {_format_metric(review['citation_coverage'])}")
+    print(f"Invalid citation rate: {_format_metric(review['invalid_citation_rate'])}")
+    print(
+        "Editorial decision accuracy: "
+        f"{_format_metric(review['editorial_decision_accuracy'])}"
+    )
+    print(f"Deep-dive selection accuracy: {_format_metric(selection['deep_dive_accuracy'])}")
+    print(
+        "Publication-track accuracy: "
+        f"{_format_metric(rubric.get('publication_track_accuracy'))}"
+    )
+    if include_errors:
+        _print_evaluation_error_summary(result.metrics["error_summary"])
+        _print_evaluation_mismatches(result.mismatches)
 
 
 def _print_evaluation_mismatches(mismatches: tuple[EvaluationMismatch, ...]) -> None:
