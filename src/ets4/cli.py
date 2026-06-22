@@ -1177,6 +1177,7 @@ def _print_benchmark_validation(result: BenchmarkValidationResult) -> None:
     print(f"Draft/not accepted labels: {result.not_accepted_count}")
     print(f"Incomplete labels: {result.incomplete_count}")
     print(f"Errors: {result.error_count}")
+    print(f"Warnings: {result.warning_count}")
     print(f"Ready for ets4 evaluate: {'yes' if result.ready_for_evaluation else 'no'}")
     for error in result.top_level_errors:
         print(f"Top-level error: {error}")
@@ -1186,11 +1187,11 @@ def _print_benchmark_validation(result: BenchmarkValidationResult) -> None:
     problem_statuses = [
         status
         for status in result.paper_statuses
-        if not status.is_accepted or status.is_incomplete
+        if not status.is_accepted or status.is_incomplete or status.warnings
     ]
     if not problem_statuses:
         return
-    print("Draft or incomplete labels:")
+    print("Draft, incomplete, or warning labels:")
     for status in problem_statuses:
         details = []
         if status.label_status not in {None, "accepted"}:
@@ -1199,6 +1200,8 @@ def _print_benchmark_validation(result: BenchmarkValidationResult) -> None:
             details.append(f"missing={','.join(status.missing_fields)}")
         if status.invalid_fields:
             details.append(f"invalid={','.join(status.invalid_fields)}")
+        if status.warnings:
+            details.append(f"warnings={','.join(status.warnings)}")
         print(f"- {status.paper_id}: {'; '.join(details)}")
 
 

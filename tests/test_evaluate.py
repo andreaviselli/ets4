@@ -336,11 +336,55 @@ def test_validate_benchmark_template_reports_draft_incomplete_labels(tmp_path) -
     assert result.not_accepted_count == 2
     assert result.incomplete_count == 2
     assert result.error_count == 0
+    assert result.warning_count == 0
     assert result.ready_for_evaluation is False
     assert result.paper_statuses[0].label_status == "needs_human_label"
     assert "relevance_label" in result.paper_statuses[0].missing_fields
     assert "audience_fit" in result.paper_statuses[0].missing_fields
     assert "publication_track" in result.paper_statuses[0].missing_fields
+
+
+def test_validate_benchmark_file_reports_label_consistency_warnings(tmp_path) -> None:
+    labels_path = tmp_path / "warning-labels.json"
+    labels_path.write_text(
+        json.dumps(
+            {
+                "version": "warning-fixture-v1",
+                "papers": [
+                    {
+                        "paper_id": "paper-1",
+                        "label_status": "accepted",
+                        "title": "Applied method paper",
+                        "relevance_label": "directly_relevant",
+                        "audience_fit": "applied_researcher",
+                        "application_type": "forecasting",
+                        "economic_relevance": "medium",
+                        "forecasting_contribution": "novel_method",
+                        "publication_track": "applied_note",
+                        "expected_category": "directly_relevant",
+                        "expected_triage_decision": "assign_reviewers",
+                        "expected_editorial_decision": "full_deep_dive",
+                        "expected_deep_dive": True,
+                        "expected_short_mention": True,
+                        "required_evidence_kinds": ["method"],
+                        "hard_negative": False,
+                        "high_value": True,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = validate_benchmark_file(labels_path)
+
+    assert result.ready_for_evaluation is True
+    assert result.error_count == 0
+    assert result.warning_count == 2
+    assert result.paper_statuses[0].warnings == (
+        "full_deep_dive_with_non_deep_dive_track",
+        "full_deep_dive_with_short_mention_selection",
+    )
 
 
 def test_create_benchmark_subset_preserves_draft_labels(tmp_path) -> None:

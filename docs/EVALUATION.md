@@ -67,8 +67,10 @@ ets4 benchmark-status --labels exports/benchmarks/run-example123.benchmark-templ
 ```
 
 The status command validates benchmark JSON, reports labels that are still draft
-or incomplete, and exits non-zero only for structural validation errors. To make
-a smaller human-editing file from a generated template:
+or incomplete, and emits non-blocking warnings for internally mixed label axes,
+such as a `full_deep_dive` editorial decision paired with an `applied_note`
+publication track. It exits non-zero only for structural validation errors. To
+make a smaller human-editing file from a generated template:
 
 ```bash
 ets4 benchmark-status \

@@ -157,6 +157,14 @@ class FakeModelProvider:
         "trading",
         "value at risk",
     )
+    descriptive_finance_terms = (
+        "generative model",
+        "generative modeling",
+        "long range dependence",
+        "long-range dependence",
+        "market efficiency",
+        "synthetic financial data",
+    )
     applied_note_terms = (
         "alternative scenario",
         "alternative scenarios",
@@ -195,6 +203,7 @@ class FakeModelProvider:
         has_adjacent_economic = _contains_any_term(text, self.adjacent_economic_terms)
         has_financial_method = _contains_any_term(text, self.financial_method_terms)
         has_finance_reject = _contains_any_term(text, self.finance_reject_terms)
+        has_descriptive_finance = _contains_any_term(text, self.descriptive_finance_terms)
         has_hard_negative = _contains_any_term(text, self.hard_negative_terms)
 
         if has_hard_negative and not has_forecasting:
@@ -219,6 +228,20 @@ class FakeModelProvider:
                 reason=(
                     "Detected a finance/trading risk topic without enough applied economic "
                     "forecasting fit for the default product."
+                ),
+            )
+
+        if has_descriptive_finance and not has_economic:
+            return TriageResult(
+                decision="reject",
+                category_hint="not_relevant",
+                forecasting_signal="explicit" if has_forecasting else "absent",
+                economic_signal="absent",
+                score=3.0,
+                confidence=0.7,
+                reason=(
+                    "Detected a descriptive financial-method topic without enough "
+                    "applied economic forecasting fit for the default product."
                 ),
             )
 
@@ -353,17 +376,27 @@ class FakeModelProvider:
         has_economic = _contains_any_term(paper_text, self.economic_terms)
         has_adjacent_economic = _contains_any_term(paper_text, self.adjacent_economic_terms)
         has_financial_method = _contains_any_term(paper_text, self.financial_method_terms)
+        has_descriptive_finance = _contains_any_term(paper_text, self.descriptive_finance_terms)
         track_fit = _track_fit(
             paper_text=paper_text,
             has_forecasting=has_forecasting,
             has_economic=has_economic,
             has_adjacent_economic=has_adjacent_economic,
             has_financial_method=has_financial_method,
+            has_descriptive_finance=has_descriptive_finance,
             applied_note_terms=self.applied_note_terms,
             applied_method_terms=self.applied_method_terms,
         )
 
         if disagreement >= 3.0 or len(weak_reports) >= 2:
+            decision = "needs_human_adjudication"
+        elif (
+            track_fit in {"methods_watch", "reject"}
+            and has_financial_method
+            and not has_descriptive_finance
+            and adjusted_score >= 6.5
+            and evidence_count >= 5
+        ):
             decision = "needs_human_adjudication"
         elif adjusted_score >= 7.0 and evidence_count >= 5 and track_fit in {
             "deep_dive",
@@ -439,9 +472,12 @@ def _track_fit(
     has_economic: bool,
     has_adjacent_economic: bool,
     has_financial_method: bool,
+    has_descriptive_finance: bool,
     applied_note_terms: tuple[str, ...],
     applied_method_terms: tuple[str, ...],
 ) -> str:
+    if has_descriptive_finance and not has_economic:
+        return "reject"
     if has_financial_method and not _contains_any_term(paper_text, economic_terms_for_track()):
         return "reject"
     if has_forecasting and has_economic and _contains_any_term(paper_text, applied_note_terms):

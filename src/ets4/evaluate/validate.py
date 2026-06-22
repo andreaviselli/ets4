@@ -46,6 +46,7 @@ class PaperLabelStatus:
     label_status: str | None
     missing_fields: tuple[str, ...]
     invalid_fields: tuple[str, ...]
+    warnings: tuple[str, ...] = ()
 
     @property
     def is_accepted(self) -> bool:
@@ -65,6 +66,7 @@ class BenchmarkValidationResult:
     not_accepted_count: int
     incomplete_count: int
     error_count: int
+    warning_count: int
     paper_statuses: tuple[PaperLabelStatus, ...]
     top_level_errors: tuple[str, ...] = ()
     duplicate_paper_ids: tuple[str, ...] = ()
@@ -99,6 +101,7 @@ def validate_benchmark_file(path: str | Path) -> BenchmarkValidationResult:
             not_accepted_count=0,
             incomplete_count=0,
             error_count=1,
+            warning_count=0,
             paper_statuses=(),
             top_level_errors=("Benchmark JSON must be an object",),
         )
@@ -114,6 +117,7 @@ def validate_benchmark_file(path: str | Path) -> BenchmarkValidationResult:
             not_accepted_count=0,
             incomplete_count=0,
             error_count=1,
+            warning_count=0,
             paper_statuses=(),
             top_level_errors=("Benchmark JSON must contain a papers list",),
         )
@@ -134,6 +138,7 @@ def validate_benchmark_file(path: str | Path) -> BenchmarkValidationResult:
                     label_status=None,
                     missing_fields=("paper_id",),
                     invalid_fields=("paper",),
+                    warnings=(),
                 )
             )
             continue
@@ -152,6 +157,7 @@ def validate_benchmark_file(path: str | Path) -> BenchmarkValidationResult:
     )
     accepted_count = sum(1 for status in statuses if status.is_accepted)
     incomplete_count = sum(1 for status in statuses if status.is_incomplete)
+    warning_count = sum(len(status.warnings) for status in statuses)
     return BenchmarkValidationResult(
         path=labels_path,
         version=version,
@@ -160,6 +166,7 @@ def validate_benchmark_file(path: str | Path) -> BenchmarkValidationResult:
         not_accepted_count=len(papers) - accepted_count,
         incomplete_count=incomplete_count,
         error_count=error_count,
+        warning_count=warning_count,
         paper_statuses=tuple(statuses),
         top_level_errors=tuple(top_errors),
         duplicate_paper_ids=duplicate_tuple,
@@ -223,6 +230,7 @@ def _paper_label_status(paper: dict[str, Any], *, index: int) -> PaperLabelStatu
     paper_id = str(paper_id_value) if paper_id_value else f"<paper-{index}>"
     missing = _missing_fields(paper)
     invalid = _invalid_fields(paper)
+    warnings = _label_warnings(paper)
     if not paper_id_value:
         missing = (*missing, "paper_id")
     return PaperLabelStatus(
@@ -231,6 +239,7 @@ def _paper_label_status(paper: dict[str, Any], *, index: int) -> PaperLabelStatu
         label_status=_optional_string(paper.get("label_status")),
         missing_fields=tuple(sorted(set(missing))),
         invalid_fields=tuple(sorted(set(invalid))),
+        warnings=tuple(sorted(set(warnings))),
     )
 
 
@@ -308,6 +317,51 @@ def _invalid_fields(paper: dict[str, Any]) -> tuple[str, ...]:
     if evidence_kinds is not None and not _string_list(evidence_kinds):
         invalid.append("required_evidence_kinds")
     return tuple(invalid)
+
+
+def _label_warnings(paper: dict[str, Any]) -> tuple[str, ...]:
+    warnings: list[str] = []
+    expected_triage = paper.get("expected_triage_decision")
+    expected_category = paper.get("expected_category")
+    expected_editorial = paper.get("expected_editorial_decision")
+    expected_deep_dive = paper.get("expected_deep_dive")
+    expected_short_mention = paper.get("expected_short_mention")
+    publication_track = paper.get("publication_track")
+
+    if expected_triage == "reject" and expected_category in {"directly_relevant", "paper_of_interest"}:
+        warnings.append("reject_triage_with_positive_category")
+
+    if expected_editorial == "full_deep_dive":
+        if expected_deep_dive is False:
+            warnings.append("full_deep_dive_without_deep_dive_selection")
+        if expected_short_mention is True:
+            warnings.append("full_deep_dive_with_short_mention_selection")
+        if publication_track not in {None, "deep_dive"}:
+            warnings.append("full_deep_dive_with_non_deep_dive_track")
+    elif expected_editorial == "short_mention":
+        if expected_deep_dive is True:
+            warnings.append("short_mention_with_deep_dive_selection")
+        if expected_short_mention is False:
+            warnings.append("short_mention_without_short_mention_selection")
+        if publication_track not in {None, "applied_note"}:
+            warnings.append("short_mention_with_non_applied_note_track")
+    elif expected_editorial in {"watchlist", "needs_human_adjudication", "reject"}:
+        if expected_deep_dive is True:
+            warnings.append(f"{expected_editorial}_with_deep_dive_selection")
+        if expected_short_mention is True:
+            warnings.append(f"{expected_editorial}_with_short_mention_selection")
+
+    if publication_track == "deep_dive" and expected_deep_dive is False:
+        warnings.append("deep_dive_track_without_deep_dive_selection")
+    if publication_track == "applied_note" and expected_short_mention is False:
+        warnings.append("applied_note_track_without_short_mention_selection")
+    if publication_track in {"methods_watch", "reject"}:
+        if expected_deep_dive is True:
+            warnings.append(f"{publication_track}_track_with_deep_dive_selection")
+        if expected_short_mention is True:
+            warnings.append(f"{publication_track}_track_with_short_mention_selection")
+
+    return tuple(warnings)
 
 
 def _append_invalid_choice(

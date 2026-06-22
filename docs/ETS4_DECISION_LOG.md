@@ -4,6 +4,33 @@ This file records durable architectural and editorial decisions. It is not a
 changelog. Add entries when a future agent or human editor would need the
 rationale, consequences, or reversal conditions.
 
+## 2026-06-22: Treat Benchmark Label Inconsistencies as Warnings
+
+Decision: `ets4 benchmark-status` now reports internally mixed accepted labels
+as non-blocking warnings rather than structural errors.
+
+Context: The first accepted subset contains useful human judgments, but two
+residual replay mismatches come from mixed label axes: one paper is labeled as a
+full deep dive while also using the applied-note track and short-mention
+selection, and one finance-risk paper is rejected at triage while retaining a
+positive category label. Those records should remain evaluable, but they should
+not silently drive provider or prompt changes.
+
+Alternatives considered:
+
+- Reject any accepted benchmark file with label-axis inconsistencies.
+- Ignore inconsistencies and treat all residual mismatches as model failures.
+- Preserve evaluation readiness while surfacing warnings for human cleanup.
+
+Consequence: Small pilot benchmarks can still be evaluated, and residual errors
+can be separated into clear model behavior versus labels that need editorial
+clarification. Future benchmark expansion should resolve warnings before using
+the subset as a provider-adoption gate.
+
+Reversal condition: If benchmark governance becomes stricter or warnings remain
+unresolved in a formal release gate, promote selected warning classes to
+validation errors.
+
 ## 2026-06-22: Make Practitioner/Applied Forecasting the Default Product
 
 Decision: ETS4's default editorial product is a practitioner/applied economic

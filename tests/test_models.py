@@ -51,6 +51,18 @@ def test_fake_provider_rejects_trading_risk_without_applied_economic_fit() -> No
     assert result.category_hint == "not_relevant"
 
 
+def test_fake_provider_rejects_descriptive_finance_without_applied_economic_fit() -> None:
+    provider = FakeModelProvider()
+
+    result = provider.triage(
+        "Long-Range Dependence in Financial Markets",
+        "We study market efficiency with generative modeling of synthetic financial data.",
+    )
+
+    assert result.decision == "reject"
+    assert result.category_hint == "not_relevant"
+
+
 def test_fake_provider_routes_economic_scenario_paper_to_review() -> None:
     provider = FakeModelProvider()
 
@@ -142,7 +154,8 @@ def test_fake_handling_editor_caps_financial_method_paper() -> None:
 
     result = provider.handling_editor(dossier, reports)
 
-    assert result.decision == "watchlist"
+    assert result.decision == "needs_human_adjudication"
+    assert result.publication_track == "reject"
     assert "Applied forecasting fit is limited" in result.questions_for_human[-1]
 
 

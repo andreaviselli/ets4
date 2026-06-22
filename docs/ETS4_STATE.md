@@ -105,44 +105,50 @@ under the practitioner/applied forecasting rubric.
 - publication-track accuracy: 0.1667
 - publication-track distribution: 2 applied notes, 4 rejects
 - latest evidence refresh: 9 documents refreshed, 3196 evidence items, 0 skips
-- latest deterministic replay run: `run-407e0f64116b`
-- latest replay evaluation run: `eval-5a058447f8bc039e`
+- benchmark-status warnings: 3 across 2 papers
+- latest deterministic replay run: `run-1f7f74fb991b`
+- latest replay evaluation run: `eval-fed29692e79eac8f`
 - replay triaged papers: 21
-- replay selected for full review: 8
-- replay reviewed papers: 8
+- replay selected for full review: 7
+- replay reviewed papers: 7
 - replay review errors: 0
-- replay triage decision accuracy: 0.8333
-- replay selected-paper precision: 0.75
+- replay triage decision accuracy: 1.0
+- replay triage category accuracy: 0.8333
+- replay selected-paper precision: 1.0
 - replay relevant-paper recall: 0.75
 - replay required evidence-kind coverage: 1.0
-- replay editorial decision accuracy: 0.3333
+- replay editorial decision accuracy: 1.0
 - replay deep-dive selection accuracy: 0.8333
+- replay short-mention selection accuracy: 1.0
 - replay publication-track accuracy: 1.0
-- replay per-paper mismatches: 6
+- replay per-paper mismatches: 2
 
 Interpretation: the fake-provider baseline preserves citation validity on the
 accepted subset. The replayed baseline improved triage decision accuracy,
-deep-dive selection accuracy, publication-track accuracy, evidence-kind
-coverage, and total mismatch count compared with the stored pilot evaluation.
-Evidence-kind coverage is now complete on the accepted subset after refreshing
-stored pages. Remaining failures are residual triage/editorial edge cases:
-one applied-method paper labeled for both deep-dive and applied-note treatment,
-one VaR/equity-market paper whose label expects direct relevance but rejection,
-and two financial-method/watchlist cases where human labels distinguish reject
-from human adjudication. The current result is still not strong enough for
-real-provider adoption or website integration.
+triage category accuracy, selected-paper precision, editorial decision
+accuracy, deep-dive selection accuracy, publication-track accuracy,
+evidence-kind coverage, and total mismatch count compared with the stored pilot
+evaluation. Evidence-kind coverage is now complete on the accepted subset after
+refreshing stored pages. The remaining two mismatches align with
+benchmark-status warnings: one applied-method paper is labeled for both
+deep-dive and applied-note treatment, and one VaR/equity-market paper expects
+direct relevance categorization while also expecting triage rejection. The
+current result is still too small and label-warning-bound for real-provider
+adoption or website integration.
 
 ## Next Recommended Task
 
-Resolve the residual accepted-subset triage/editorial edge cases or expand the
-benchmark before adding a real provider.
+Resolve the two benchmark-status warning cases or expand the benchmark before
+adding a real provider.
 
 Suggested scope:
 
-- inspect the accepted labels for the remaining six mismatches and decide
-  whether they reflect label ambiguity, evaluator semantics, or model behavior
-- decide whether `watchlist` should satisfy `needs_human_adjudication` for
-  method-watch papers or remain an exact editorial mismatch
+- decide whether the Directional-Shift Dirichlet ARMA label should be a
+  `deep_dive`, an `applied_note`, or a short mention, then update the ignored
+  accepted local labels accordingly
+- decide whether the VaR/equity-market label should keep a positive category
+  despite triage rejection, or whether `expected_category` should match the
+  rejected practitioner/applied-product scope
 - preserve hard-negative false-positive rate 0, evidence coverage 1.0, and
   publication-track accuracy 1.0 on the accepted subset
 - keep accepted human labels as ignored local artifacts unless a curated test
