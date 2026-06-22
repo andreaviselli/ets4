@@ -74,28 +74,28 @@ under the practitioner/applied forecasting rubric.
 - labels file: `exports/benchmarks/run-960b75015cc3.initial-subset.json`
 - benchmark version: `run-960b75015cc3-human-v1-subset`
 - labeled papers: 6
-- triage decision accuracy: 0.3333
-- triage category accuracy: 0.3333
-- selected-paper precision: 0.6
+- triage decision accuracy: 0.5
+- triage category accuracy: 0.6667
+- selected-paper precision: 0.8
 - relevant-paper recall: 1.0
 - hard-negative false-positive rate: 0.0
 - required evidence-kind coverage: 0.3611
 - papers missing required evidence: 3
 - reviewer citation coverage: 1.0
 - invalid citation rate: 0.0
-- editorial decision accuracy: 0.0
-- deep-dive selection accuracy: 0.5
+- editorial decision accuracy: 0.1667
+- deep-dive selection accuracy: 0.3333
 - short-mention selection accuracy: 0.8333
 - publication-track accuracy: 0.1667
-- publication-track distribution: 1 applied note, 1 methods watch, 4 rejects
+- publication-track distribution: 2 applied notes, 4 rejects
 
 Interpretation: the fake-provider baseline preserves citation validity on the
 accepted subset, but it does not match human editorial labels well enough for
-real use. Under the practitioner/applied rubric it promotes too many papers into
-deep-dive-like treatment, especially methods/curiosity papers that should be
-short applied notes, methods watch, or rejects. The next implementation work
-should make benchmark inspection and error analysis easier before adding a real
-provider.
+real use. The revised labels improve triage/category metrics, but the baseline
+still promotes too many papers into deep-dive-like treatment when the
+practitioner/applied rubric expects applied notes or rejects. The next
+implementation work should make benchmark inspection and error analysis easier
+before adding a real provider.
 
 ## Next Recommended Task
 
