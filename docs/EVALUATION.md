@@ -71,9 +71,12 @@ or incomplete, and emits non-blocking warnings for internally mixed label axes,
 such as a `full_deep_dive` editorial decision paired with an `applied_note`
 publication track. Each warning includes the paper id, title, affected fields,
 reason, and suggested human resolution. Add `--json` to produce the same audit
-as machine-readable output for handoff notes or review tooling. It exits
-non-zero only for structural validation errors. To make a smaller human-editing
-file from a generated template:
+as machine-readable output for handoff notes or review tooling. The same status
+report includes coverage against the pilot benchmark targets, such as accepted
+labels, full-review examples, hard negatives, directly relevant papers,
+transferable methods, and weak or missing full-text examples. It exits non-zero
+only for structural validation errors. To make a smaller human-editing file
+from a generated template:
 
 ```bash
 ets4 benchmark-status \

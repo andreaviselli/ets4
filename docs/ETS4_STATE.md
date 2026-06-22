@@ -40,8 +40,9 @@ expansion, or website integration.
   completed run.
 - `ets4 benchmark-status` validates benchmark JSON, reports draft or incomplete
   labels, emits accepted-label consistency warnings with human-resolution
-  suggestions, can print the audit as JSON, and can write a smaller copied
-  subset for human editing without accepting or inventing labels.
+  suggestions, reports coverage against pilot benchmark targets, can print the
+  audit as JSON, and can write a smaller copied subset for human editing
+  without accepting or inventing labels.
 - `ets4 evaluate` rejects draft benchmark labels unless each label is marked
   `label_status: "accepted"`.
 - Benchmark labels now include practitioner/applied rubric fields: audience
@@ -110,6 +111,9 @@ under the practitioner/applied forecasting rubric.
 - publication-track distribution: 2 applied notes, 4 rejects
 - latest evidence refresh: 9 documents refreshed, 3196 evidence items, 0 skips
 - benchmark-status warnings: 3 across 2 papers
+- benchmark coverage: 6/100 accepted labels, 3/20 full-review examples,
+  hard-negative/directly-relevant/transferable-method/weak-full-text coverage
+  targets met
 - latest deterministic replay run: `run-1f7f74fb991b`
 - latest replay evaluation run: `eval-fed29692e79eac8f`
 - replay triaged papers: 21
@@ -158,7 +162,9 @@ Suggested scope:
   despite triage rejection, or whether `expected_category` should match the
   rejected practitioner/applied-product scope
 - use `ets4 benchmark-status --json --labels ...` to inspect the exact warning
-  records before changing ignored local labels
+  records and coverage gaps before changing ignored local labels
+- expand the accepted benchmark by at least 94 triage labels and 17 full-review
+  labels to reach the documented minimum provider-gate coverage target
 - preserve hard-negative false-positive rate 0, evidence coverage 1.0, and
   publication-track accuracy 1.0 on the accepted subset
 - keep accepted human labels as ignored local artifacts unless a curated test

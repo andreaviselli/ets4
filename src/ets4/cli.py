@@ -1260,6 +1260,14 @@ def _print_benchmark_validation(result: BenchmarkValidationResult) -> None:
         print(f"Top-level error: {error}")
     if result.duplicate_paper_ids:
         print(f"Duplicate paper ids: {', '.join(result.duplicate_paper_ids)}")
+    if result.coverage_checks:
+        print("Benchmark coverage:")
+        for check in result.coverage_checks:
+            status = "ok" if check.passed else f"missing {check.remaining}"
+            print(
+                f"- {check.name}: {check.observed}/{check.target} ({status}); "
+                f"{check.reason}"
+            )
 
     problem_statuses = [
         status

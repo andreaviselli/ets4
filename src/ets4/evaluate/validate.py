@@ -66,6 +66,16 @@ class PaperLabelStatus:
 
 
 @dataclass(frozen=True)
+class BenchmarkCoverageCheck:
+    name: str
+    observed: int
+    target: int
+    passed: bool
+    remaining: int
+    reason: str
+
+
+@dataclass(frozen=True)
 class BenchmarkValidationResult:
     path: Path
     version: str
@@ -78,6 +88,7 @@ class BenchmarkValidationResult:
     paper_statuses: tuple[PaperLabelStatus, ...]
     top_level_errors: tuple[str, ...] = ()
     duplicate_paper_ids: tuple[str, ...] = ()
+    coverage_checks: tuple[BenchmarkCoverageCheck, ...] = ()
 
     @property
     def ready_for_evaluation(self) -> bool:
@@ -94,6 +105,16 @@ class BenchmarkSubsetResult:
     path: Path
     paper_count: int
     paper_ids: tuple[str, ...]
+
+
+MINIMUM_BENCHMARK_TARGETS = {
+    "accepted_labels": 100,
+    "full_review_examples": 20,
+    "hard_negative_examples": 1,
+    "directly_relevant_examples": 1,
+    "transferable_method_examples": 1,
+    "weak_or_missing_full_text_examples": 1,
+}
 
 
 _WARNING_DETAILS: dict[str, PaperLabelWarning] = {
@@ -230,6 +251,7 @@ def validate_benchmark_file(path: str | Path) -> BenchmarkValidationResult:
     accepted_count = sum(1 for status in statuses if status.is_accepted)
     incomplete_count = sum(1 for status in statuses if status.is_incomplete)
     warning_count = sum(len(status.warnings) for status in statuses)
+    coverage_checks = _coverage_checks(papers)
     return BenchmarkValidationResult(
         path=labels_path,
         version=version,
@@ -242,6 +264,7 @@ def validate_benchmark_file(path: str | Path) -> BenchmarkValidationResult:
         paper_statuses=tuple(statuses),
         top_level_errors=tuple(top_errors),
         duplicate_paper_ids=duplicate_tuple,
+        coverage_checks=coverage_checks,
     )
 
 
@@ -268,6 +291,10 @@ def benchmark_validation_dict(result: BenchmarkValidationResult) -> dict[str, An
         "ready_for_evaluation": result.ready_for_evaluation,
         "top_level_errors": list(result.top_level_errors),
         "duplicate_paper_ids": list(result.duplicate_paper_ids),
+        "coverage": {
+            "ready": bool(result.coverage_checks) and all(check.passed for check in result.coverage_checks),
+            "checks": [_coverage_check_dict(check) for check in result.coverage_checks],
+        },
         "warnings": warnings,
         "paper_statuses": paper_statuses,
     }
@@ -484,6 +511,96 @@ def _warning_dict(warning: PaperLabelWarning) -> dict[str, Any]:
         "reason": warning.reason,
         "suggested_action": warning.suggested_action,
     }
+
+
+def _coverage_checks(papers: list[Any]) -> tuple[BenchmarkCoverageCheck, ...]:
+    accepted = [
+        paper
+        for paper in papers
+        if isinstance(paper, dict) and _optional_string(paper.get("label_status")) == "accepted"
+    ]
+    values = {
+        "accepted_labels": len(accepted),
+        "full_review_examples": sum(1 for paper in accepted if _is_full_review_label(paper)),
+        "hard_negative_examples": sum(1 for paper in accepted if paper.get("hard_negative") is True),
+        "directly_relevant_examples": sum(
+            1 for paper in accepted if paper.get("relevance_label") == "directly_relevant"
+        ),
+        "transferable_method_examples": sum(1 for paper in accepted if _is_transferable_method(paper)),
+        "weak_or_missing_full_text_examples": sum(
+            1 for paper in accepted if _is_weak_or_missing_full_text(paper)
+        ),
+    }
+    reasons = {
+        "accepted_labels": "Minimum triage benchmark size for provider comparisons.",
+        "full_review_examples": "Minimum reviewed-paper coverage for review-quality assessment.",
+        "hard_negative_examples": "Coverage for plausible false positives that should be rejected.",
+        "directly_relevant_examples": "Coverage for papers that are clearly in scope.",
+        "transferable_method_examples": "Coverage for methods-watch or transferable-method cases.",
+        "weak_or_missing_full_text_examples": "Coverage for weak retrieval or missing full-text cases.",
+    }
+    return tuple(
+        _coverage_check(
+            name=name,
+            observed=values[name],
+            target=target,
+            reason=reasons[name],
+        )
+        for name, target in MINIMUM_BENCHMARK_TARGETS.items()
+    )
+
+
+def _coverage_check(
+    *,
+    name: str,
+    observed: int,
+    target: int,
+    reason: str,
+) -> BenchmarkCoverageCheck:
+    return BenchmarkCoverageCheck(
+        name=name,
+        observed=observed,
+        target=target,
+        passed=observed >= target,
+        remaining=max(0, target - observed),
+        reason=reason,
+    )
+
+
+def _coverage_check_dict(check: BenchmarkCoverageCheck) -> dict[str, Any]:
+    return {
+        "name": check.name,
+        "observed": check.observed,
+        "target": check.target,
+        "passed": check.passed,
+        "remaining": check.remaining,
+        "reason": check.reason,
+    }
+
+
+def _is_full_review_label(paper: dict[str, Any]) -> bool:
+    return paper.get("expected_triage_decision") in {"assign_reviewers", "borderline"} or paper.get(
+        "expected_editorial_decision"
+    ) not in {None, "reject"}
+
+
+def _is_transferable_method(paper: dict[str, Any]) -> bool:
+    return (
+        paper.get("relevance_label") == "paper_of_interest"
+        or paper.get("publication_track") == "methods_watch"
+        or paper.get("audience_fit") == "academic_methods"
+        or paper.get("application_type") == "method_only"
+    )
+
+
+def _is_weak_or_missing_full_text(paper: dict[str, Any]) -> bool:
+    if paper.get("required_evidence_kinds") == [] and paper.get("expected_triage_decision") != "reject":
+        return True
+    document = _context_value(paper, "document")
+    if isinstance(document, dict) and document.get("status") not in {None, "ok"}:
+        return True
+    evidence = _context_value(paper, "evidence")
+    return isinstance(evidence, dict) and int(evidence.get("count") or 0) == 0
 
 
 def _warning_for_code(code: str) -> PaperLabelWarning:

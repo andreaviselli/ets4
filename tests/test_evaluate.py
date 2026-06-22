@@ -396,6 +396,9 @@ def test_validate_benchmark_template_reports_draft_incomplete_labels(tmp_path) -
     assert result.error_count == 0
     assert result.warning_count == 0
     assert result.ready_for_evaluation is False
+    coverage = {check.name: check for check in result.coverage_checks}
+    assert coverage["accepted_labels"].observed == 0
+    assert coverage["accepted_labels"].remaining == 100
     assert result.paper_statuses[0].label_status == "needs_human_label"
     assert "relevance_label" in result.paper_statuses[0].missing_fields
     assert "audience_fit" in result.paper_statuses[0].missing_fields
@@ -446,6 +449,15 @@ def test_validate_benchmark_file_reports_label_consistency_warnings(tmp_path) ->
     )
     payload = benchmark_validation_dict(result)
     assert payload["warning_count"] == 2
+    assert payload["coverage"]["ready"] is False
+    assert payload["coverage"]["checks"][0] == {
+        "name": "accepted_labels",
+        "observed": 1,
+        "target": 100,
+        "passed": False,
+        "remaining": 99,
+        "reason": "Minimum triage benchmark size for provider comparisons.",
+    }
     assert payload["warnings"][0]["paper_id"] == "paper-1"
     assert payload["warnings"][0]["fields"] == [
         "expected_editorial_decision",
@@ -589,6 +601,9 @@ def test_cli_benchmark_status_json_includes_warning_and_subset_details(tmp_path,
     payload = json.loads(capsys.readouterr().out)
     assert payload["ready_for_evaluation"] is True
     assert payload["warning_count"] == 2
+    assert payload["coverage"]["ready"] is False
+    assert payload["coverage"]["checks"][1]["name"] == "full_review_examples"
+    assert payload["coverage"]["checks"][1]["remaining"] == 19
     assert payload["warnings"][0]["title"] == "Applied method paper"
     assert payload["warnings"][0]["code"] == "full_deep_dive_with_non_deep_dive_track"
     assert payload["subset"] == {
