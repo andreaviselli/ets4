@@ -1,5 +1,6 @@
 """Evaluation harness for labeled ETS4 benchmark runs."""
 
+from .gate import GateCheck, ProviderGateResult, assess_provider_gate, provider_gate_dict
 from .labels import Benchmark, PaperLabel, load_benchmark
 from .report import (
     EvaluationMismatch,
@@ -25,8 +26,11 @@ __all__ = [
     "BenchmarkValidationResult",
     "EvaluationMismatch",
     "EvaluationResult",
+    "GateCheck",
     "PaperLabel",
     "PaperLabelWarning",
+    "ProviderGateResult",
+    "assess_provider_gate",
     "benchmark_validation_dict",
     "create_benchmark_template",
     "create_benchmark_subset",
@@ -35,5 +39,6 @@ __all__ = [
     "evaluate_run",
     "load_benchmark",
     "mismatch_dicts",
+    "provider_gate_dict",
     "validate_benchmark_file",
 ]

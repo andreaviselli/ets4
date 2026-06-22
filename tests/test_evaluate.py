@@ -5,6 +5,7 @@ from ets4.cli import main
 from ets4.config import load_config
 from ets4.documents import process_document_for_paper
 from ets4.evaluate import (
+    assess_provider_gate,
     benchmark_validation_dict,
     create_benchmark_subset,
     create_benchmark_template,
@@ -12,6 +13,7 @@ from ets4.evaluate import (
     evaluate_run,
     load_benchmark,
     validate_benchmark_file,
+    provider_gate_dict,
 )
 from ets4.manifest import create_manifest
 from ets4.models import FakeModelProvider
@@ -57,6 +59,28 @@ def test_evaluate_run_persists_metrics_and_items(tmp_path) -> None:
         assert result.item_results[1]["editorial"]["decision"] == "reject"
         assert conn.execute("SELECT COUNT(*) FROM evaluation_runs").fetchone()[0] == 1
         assert conn.execute("SELECT COUNT(*) FROM evaluation_items").fetchone()[0] == 2
+
+
+def test_provider_gate_blocks_small_benchmark_before_provider_adoption(tmp_path) -> None:
+    db_path = tmp_path / "ets4.sqlite"
+    run_id = _create_evaluable_run(db_path)
+    validation = validate_benchmark_file(LABELS_PATH)
+
+    with connect(db_path) as conn:
+        result = evaluate_run(conn, run_id=run_id, labels_path=LABELS_PATH)
+
+    gate = assess_provider_gate(
+        metrics=result.metrics,
+        item_results=result.item_results,
+        benchmark_validation=validation,
+    )
+    payload = provider_gate_dict(gate)
+
+    assert gate.ready is False
+    assert gate.status == "not_ready"
+    failed = {check["name"] for check in payload["checks"] if not check["passed"]}
+    assert failed == {"benchmark_incomplete_labels", "labeled_papers", "full_review_examples"}
+    assert payload["failed_count"] == 3
 
 
 def test_evaluate_run_reports_per_paper_mismatches(tmp_path) -> None:
@@ -158,6 +182,39 @@ def test_cli_evaluate_completed_run(tmp_path) -> None:
         assert conn.execute("SELECT benchmark_version FROM evaluation_runs").fetchone()[0] == (
             "phase5-fixture-v1"
         )
+
+
+def test_cli_evaluate_json_includes_provider_gate(tmp_path, capsys) -> None:
+    db_path = tmp_path / "ets4.sqlite"
+    run_id = _create_evaluable_run(db_path)
+
+    assert (
+        main(
+            [
+                "--config",
+                "config/feeds.example.toml",
+                "--db",
+                str(db_path),
+                "evaluate",
+                "--run-id",
+                run_id,
+                "--labels",
+                LABELS_PATH,
+                "--gate",
+                "--json",
+            ]
+        )
+        == 0
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["provider_gate"]["ready"] is False
+    assert payload["provider_gate"]["status"] == "not_ready"
+    assert {
+        check["name"]
+        for check in payload["provider_gate"]["checks"]
+        if not check["passed"]
+    } == {"benchmark_incomplete_labels", "labeled_papers", "full_review_examples"}
 
 
 def test_cli_evaluate_errors_prints_mismatch_report(tmp_path, capsys) -> None:

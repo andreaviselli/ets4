@@ -4,6 +4,33 @@ This file records durable architectural and editorial decisions. It is not a
 changelog. Add entries when a future agent or human editor would need the
 rationale, consequences, or reversal conditions.
 
+## 2026-06-22: Codify the Real-Provider Adoption Gate
+
+Decision: `ets4 evaluate --gate` and `ets4 replay-baseline --gate` now report a
+real-provider readiness gate based on benchmark quality, label consistency, and
+core evaluation metrics.
+
+Context: The current fake-provider replay performs well on several metrics but
+the accepted subset is still small and has unresolved label warnings. Without a
+formal gate, agents could mistake a few improved metrics for permission to add
+or adopt a real model provider.
+
+Alternatives considered:
+
+- Keep provider readiness as prose in pilot-validation docs only.
+- Make failed gates cause `evaluate` to exit non-zero.
+- Add an advisory gate report that can be stored, printed, or emitted as JSON.
+
+Consequence: Provider adoption remains blocked until the benchmark has enough
+coverage, no validation errors or label warnings, explicit hard negatives,
+adequate full-review examples, strong recall/precision, high evidence coverage,
+valid citations, no hidden disagreement, and calibrated editorial/publication
+decisions. The gate is advisory so evaluation can still run and store results.
+
+Reversal condition: If later pilot evidence shows these thresholds are too
+strict, too lenient, or missing a critical quality dimension, revise the gate
+thresholds and document the new acceptance policy.
+
 ## 2026-06-22: Treat Benchmark Label Inconsistencies as Warnings
 
 Decision: `ets4 benchmark-status` now reports internally mixed accepted labels

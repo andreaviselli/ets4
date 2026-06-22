@@ -88,11 +88,14 @@ do not infer labels or mark labels as accepted.
 Run evaluation with:
 
 ```bash
-ets4 evaluate --run-id run-example123 --labels path/to/benchmark.json
+ets4 evaluate --run-id run-example123 --labels path/to/benchmark.json --gate
 ```
 
 Each evaluation stores one row in `evaluation_runs` and one row per paper in
-`evaluation_items`.
+`evaluation_items`. The optional `--gate` report checks whether the benchmark
+and metrics are ready for real-provider adoption. It is advisory and does not
+make evaluation fail; failed checks are printed and included under
+`provider_gate` when `--json` is also used.
 
 To inspect the failures behind aggregate scores, add `--errors`:
 
@@ -126,7 +129,8 @@ ets4 refresh-evidence --run-id run-example123
 ets4 replay-baseline \
   --source-run-id run-example123 \
   --labels path/to/benchmark.json \
-  --errors
+  --errors \
+  --gate
 ```
 
 `refresh-evidence` rebuilds evidence items from stored extracted pages without
@@ -135,6 +139,14 @@ re-triages papers from the source run with the current configured provider,
 reuses stored evidence for selected reviews, and can evaluate the replay
 immediately. Use this before adding a real provider so deterministic rubric,
 evidence, or selection changes are measured against the same accepted labels.
+
+Provider-gate checks currently require at least 100 labeled papers, 20
+full-review examples, explicit hard negatives, directly relevant examples,
+zero benchmark validation errors, zero benchmark warnings, zero hard-negative
+false positives, high required-evidence coverage, valid citations, no hidden
+reviewer disagreement, and acceptable selection/editorial/publication-track
+accuracy. A failed gate should lead to label cleanup, benchmark expansion,
+retrieval/evidence work, or review calibration before provider adoption.
 
 ## Labeling Guide
 

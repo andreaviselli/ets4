@@ -142,7 +142,8 @@ ets4 refresh-evidence --run-id run-example123
 ets4 replay-baseline \
   --source-run-id run-example123 \
   --labels path/to/benchmark.json \
-  --errors
+  --errors \
+  --gate
 ```
 
 Track at least:
@@ -162,6 +163,11 @@ Track at least:
 The system should not progress to real-model production use if it fails on hard
 negatives, produces unsupported draft claims, hides reviewer disagreement, or
 selects papers without adequate evidence.
+
+Use `--gate` on `evaluate` or `replay-baseline` to print the current
+real-provider readiness assessment. A failed gate is expected while benchmark
+coverage is below the minimum target or accepted-label warnings remain
+unresolved.
 
 ## Later Enhancement: Human-Labeled Casebook
 

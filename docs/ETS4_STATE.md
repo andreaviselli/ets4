@@ -51,6 +51,9 @@ expansion, or website integration.
   labels and ETS4 outputs for triage, category, editorial decisions, selection,
   publication track, and required evidence coverage. `--json` includes the same
   report in a `mismatches` array.
+- `ets4 evaluate --gate` and `ets4 replay-baseline --gate` report whether the
+  current benchmark/evaluation satisfies the real-provider adoption gate. Gate
+  failures are advisory output, not evaluation command failures.
 - `ets4 replay-baseline` creates a new evaluation-mode run from papers triaged
   in an existing source run, reuses stored evidence, and can evaluate accepted
   labels immediately. This supports deterministic baseline comparison without
@@ -123,6 +126,10 @@ under the practitioner/applied forecasting rubric.
 - replay short-mention selection accuracy: 1.0
 - replay publication-track accuracy: 1.0
 - replay per-paper mismatches: 2
+- provider gate status: not ready
+- provider gate failed checks: 4
+- provider gate blockers: benchmark warnings, 6/100 labeled papers, 3/20
+  full-review examples, relevant recall 0.75/0.8
 
 Interpretation: the fake-provider baseline preserves citation validity on the
 accepted subset. The replayed baseline improved triage decision accuracy,
@@ -139,8 +146,8 @@ adoption or website integration.
 
 ## Next Recommended Task
 
-Resolve the two benchmark-status warning cases or expand the benchmark before
-adding a real provider.
+Resolve the two benchmark-status warning cases and expand the benchmark before
+adding a real provider. The provider gate now makes this explicit.
 
 Suggested scope:
 
@@ -166,7 +173,8 @@ ets4 refresh-evidence --run-id run-960b75015cc3
 ets4 replay-baseline \
   --source-run-id run-960b75015cc3 \
   --labels exports/benchmarks/run-960b75015cc3.initial-subset.json \
-  --errors
+  --errors \
+  --gate
 ```
 
 ## Working Commands
@@ -183,6 +191,7 @@ ets4 review --run-id run-example123
 ets4 benchmark-template --run-id run-example123
 ets4 benchmark-status --labels path/to/benchmark.json
 ets4 evaluate --run-id run-example123 --labels path/to/benchmark.json
+ets4 evaluate --run-id run-example123 --labels path/to/benchmark.json --gate
 ets4 export --run-id run-example123
 ets4 archive --run-id run-example123
 ets4 run-scheduled --issue-date YYYY-MM-DD

@@ -12,10 +12,13 @@ from .evaluate import (
     BenchmarkValidationResult,
     EvaluationMismatch,
     EvaluationResult,
+    ProviderGateResult,
+    assess_provider_gate,
     benchmark_validation_dict,
     create_benchmark_subset,
     create_benchmark_template,
     evaluate_run,
+    provider_gate_dict,
     validate_benchmark_file,
 )
 from .export import export_run
@@ -135,6 +138,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print per-paper mismatches between accepted labels and system outputs.",
     )
+    evaluate_parser.add_argument(
+        "--gate",
+        action="store_true",
+        help="Assess whether this benchmark/evaluation is ready for real-provider adoption.",
+    )
     evaluate_parser.set_defaults(func=cmd_evaluate)
 
     replay_parser = subparsers.add_parser(
@@ -159,6 +167,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="When --labels is provided, print full evaluation metric JSON.",
+    )
+    replay_parser.add_argument(
+        "--gate",
+        action="store_true",
+        help="When --labels is provided, assess readiness for real-provider adoption.",
     )
     replay_parser.set_defaults(func=cmd_replay_baseline)
 
@@ -593,14 +606,22 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
             raise SystemExit(f"Run manifest not found: {args.run_id}")
         run_id = args.run_id
         result = evaluate_run(conn, run_id=run_id, labels_path=args.labels)
+    gate = _provider_gate_for_result(result, labels_path=args.labels) if args.gate else None
     if args.json:
-        print(json.dumps(result.metrics, indent=2, sort_keys=True))
+        payload = dict(result.metrics)
+        if gate is not None:
+            payload["provider_gate"] = provider_gate_dict(gate)
+        print(json.dumps(payload, indent=2, sort_keys=True))
     else:
         _print_evaluation_result(result, include_errors=args.errors)
+        if gate is not None:
+            _print_provider_gate(gate)
     return 0
 
 
 def cmd_replay_baseline(args: argparse.Namespace) -> int:
+    if args.gate and not args.labels:
+        raise SystemExit("replay-baseline --gate requires --labels")
     config = load_config(args.config)
     provider = get_model_provider(config.model_policy.provider)
     issue_date = date.fromisoformat(args.issue_date) if args.issue_date else None
@@ -621,9 +642,17 @@ def cmd_replay_baseline(args: argparse.Namespace) -> int:
             if args.labels
             else None
         )
+    gate = (
+        _provider_gate_for_result(evaluation, labels_path=args.labels)
+        if args.gate and evaluation is not None
+        else None
+    )
 
     if args.json and evaluation:
-        print(json.dumps(evaluation.metrics, indent=2, sort_keys=True))
+        payload = dict(evaluation.metrics)
+        if gate is not None:
+            payload["provider_gate"] = provider_gate_dict(gate)
+        print(json.dumps(payload, indent=2, sort_keys=True))
         return 0
     print(f"Source run: {replay.source_run_id}")
     print(f"Replay run: {replay.replay_run_id}")
@@ -639,6 +668,8 @@ def cmd_replay_baseline(args: argparse.Namespace) -> int:
     print(f"Selected for short mention: {replay.short_mention_selected_count}")
     if evaluation:
         _print_evaluation_result(evaluation, include_errors=args.errors)
+        if gate is not None:
+            _print_provider_gate(gate)
     return 0
 
 
@@ -1102,6 +1133,19 @@ def _format_metric(value: float | None) -> str:
     return f"{value:.3f}"
 
 
+def _provider_gate_for_result(
+    result: EvaluationResult,
+    *,
+    labels_path: str,
+) -> ProviderGateResult:
+    validation = validate_benchmark_file(labels_path)
+    return assess_provider_gate(
+        metrics=result.metrics,
+        item_results=result.item_results,
+        benchmark_validation=validation,
+    )
+
+
 def _print_evaluation_result(result: EvaluationResult, *, include_errors: bool) -> None:
     triage = result.metrics["triage"]
     evidence = result.metrics["evidence"]
@@ -1137,6 +1181,21 @@ def _print_evaluation_result(result: EvaluationResult, *, include_errors: bool) 
     if include_errors:
         _print_evaluation_error_summary(result.metrics["error_summary"])
         _print_evaluation_mismatches(result.mismatches)
+
+
+def _print_provider_gate(result: ProviderGateResult) -> None:
+    print("Provider gate:")
+    print(f"- status: {result.status}")
+    print(f"- ready: {'yes' if result.ready else 'no'}")
+    print(f"- failed checks: {result.failed_count}")
+    failed_checks = [check for check in result.checks if not check.passed]
+    if failed_checks:
+        print("- blockers:")
+        for check in failed_checks:
+            print(
+                f"  {check.name}: observed={_format_report_value(check.observed)}; "
+                f"required {check.required}; {check.reason}"
+            )
 
 
 def _print_evaluation_mismatches(mismatches: tuple[EvaluationMismatch, ...]) -> None:

@@ -79,8 +79,8 @@ ets4 refresh-evidence --run-id run-example123
 ets4 review --run-id run-example123
 ets4 benchmark-template --run-id run-example123
 ets4 benchmark-status --labels path/to/benchmark.json
-ets4 evaluate --run-id run-example123 --labels path/to/benchmark.json
-ets4 replay-baseline --source-run-id run-example123 --labels path/to/benchmark.json --errors
+ets4 evaluate --run-id run-example123 --labels path/to/benchmark.json --gate
+ets4 replay-baseline --source-run-id run-example123 --labels path/to/benchmark.json --errors --gate
 ets4 export --run-id run-example123
 ets4 archive --run-id run-example123
 ```
@@ -137,7 +137,8 @@ core triage, evidence, review, and selection metrics. The test fixture at
 `tests/fixtures/evaluation/benchmark.json` shows the expected label format.
 Add `--errors` to list per-paper mismatches between human labels and ETS4
 outputs and summarize failure types; `--json` includes the same error analysis
-in machine-readable form.
+in machine-readable form. Add `--gate` to report whether the benchmark and
+evaluation satisfy the documented real-provider adoption gate.
 
 `replay-baseline` creates a new evaluation-mode run from the papers triaged in
 an existing source run, using the current configured provider and any stored
