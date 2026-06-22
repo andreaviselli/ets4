@@ -6,6 +6,7 @@ from pathlib import Path
 import fitz
 
 from ets4.config import load_config
+from ets4.documents.evidence import extract_evidence_candidates
 from ets4.documents.extraction import PageText, extract_pages
 from ets4.documents.processor import process_document_for_paper
 from ets4.documents.quality import assess_extracted_pages
@@ -43,6 +44,24 @@ def test_process_text_document_extracts_pages_and_evidence(tmp_path) -> None:
         assert conn.execute("SELECT COUNT(*) FROM document_pages").fetchone()[0] == 2
         assert conn.execute("SELECT COUNT(*) FROM evidence_items").fetchone()[0] >= 4
         assert conn.execute("SELECT status FROM document_events").fetchone()[0] == "ok"
+
+
+def test_extract_evidence_candidates_recognizes_domain_specific_kinds() -> None:
+    pages = [
+        PageText(
+            page_number=1,
+            text=(
+                "Alternative scenarios rely on expert judgement during stress testing.\n\n"
+                "The structural break during Covid-19 changed volatility and trading risk."
+            ),
+        )
+    ]
+
+    candidates = extract_evidence_candidates(pages, document_id="doc-1")
+
+    assert {
+        candidate.kind for candidate in candidates
+    } >= {"scenario", "judgement", "structural_break", "Covid-19", "volatility", "trading"}
 
 
 def test_pdf_extraction_preserves_pages(tmp_path) -> None:

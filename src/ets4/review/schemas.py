@@ -25,6 +25,12 @@ EDITORIAL_DECISIONS = {
     "needs_human_adjudication",
     "reject",
 }
+PUBLICATION_TRACKS = {
+    "deep_dive",
+    "applied_note",
+    "methods_watch",
+    "reject",
+}
 
 REVIEWER_REPORT_SCHEMA: dict[str, Any] = {
     "required": (
@@ -44,6 +50,7 @@ REVIEWER_REPORT_SCHEMA: dict[str, Any] = {
 EDITORIAL_DECISION_SCHEMA: dict[str, Any] = {
     "required": (
         "decision",
+        "publication_track",
         "deep_dive_score",
         "confidence",
         "rationale",
@@ -75,6 +82,8 @@ def validate_editorial_decision(payload: dict[str, Any]) -> None:
         raise ValueError(f"Editorial decision missing required keys: {', '.join(missing)}")
     if payload["decision"] not in EDITORIAL_DECISIONS:
         raise ValueError(f"Unknown editorial decision: {payload['decision']}")
+    if payload["publication_track"] not in PUBLICATION_TRACKS:
+        raise ValueError(f"Unknown publication track: {payload['publication_track']}")
     _validate_score("deep_dive_score", payload["deep_dive_score"])
     _validate_score("confidence", payload["confidence"], upper=1.0)
     if not isinstance(payload["evidence_item_ids"], list):

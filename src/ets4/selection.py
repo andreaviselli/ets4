@@ -153,7 +153,7 @@ def select_publication_candidates(
     deep_candidates = [
         item
         for item in ranked
-        if item[2]["decision"] in {"full_deep_dive", "short_mention", "needs_human_adjudication"}
+        if item[2]["decision"] == "full_deep_dive"
     ]
     deep_selected = deep_candidates[: config.issue.max_deep_dive_drafts]
     deep_ids = {item[2]["id"] for item in deep_selected}

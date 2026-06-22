@@ -72,7 +72,7 @@ def evaluate_paper(conn: sqlite3.Connection, *, run_id: str, label: PaperLabel) 
     reviewer_scores = [float(row["score"]) for row in reports]
     reviewer_recommendations = {str(row["recommendation"]) for row in reports}
     memo = _json_dict(decision["memo_json"]) if decision else {}
-    system_publication_track = _system_publication_track(
+    system_publication_track = memo.get("publication_track") or _system_publication_track(
         decision["decision"] if decision else None,
         selections=selections,
     )

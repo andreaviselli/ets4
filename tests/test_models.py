@@ -63,6 +63,63 @@ def test_fake_provider_routes_economic_scenario_paper_to_review() -> None:
     assert result.category_hint == "directly_relevant"
 
 
+def test_fake_handling_editor_does_not_treat_generic_market_disruption_as_financial_method() -> None:
+    provider = FakeModelProvider()
+    dossier = {
+        "paper": {
+            "title": "Directional-Shift Dirichlet ARMA Models",
+            "abstract": (
+                "Policy changes and market disruptions can create structural breaks. "
+                "The model produces coherent probabilistic forecasts through scenarios."
+            ),
+        },
+        "evidence_count": 8,
+        "evidence_items": [{"id": idx, "kind": "method"} for idx in range(1, 9)],
+    }
+    reports = [
+        {
+            "role": role,
+            "recommendation": "support_deep_dive",
+            "score": 8.0,
+            "evidence_item_ids": [1, 2],
+        }
+        for role in ("relevance", "methods", "evidence", "practitioner", "transferability")
+    ]
+
+    result = provider.handling_editor(dossier, reports)
+
+    assert result.decision == "full_deep_dive"
+    assert result.publication_track == "applied_note"
+
+
+def test_fake_handling_editor_routes_scenario_evaluation_to_applied_note() -> None:
+    provider = FakeModelProvider()
+    dossier = {
+        "paper": {
+            "title": "Alternative Scenarios at the Federal Reserve",
+            "abstract": (
+                "Historical scenario evaluation and interpretation for central bank policy."
+            ),
+        },
+        "evidence_count": 8,
+        "evidence_items": [{"id": idx, "kind": "dataset"} for idx in range(1, 9)],
+    }
+    reports = [
+        {
+            "role": role,
+            "recommendation": "support_deep_dive",
+            "score": 8.0,
+            "evidence_item_ids": [1, 2],
+        }
+        for role in ("relevance", "methods", "evidence", "practitioner", "transferability")
+    ]
+
+    result = provider.handling_editor(dossier, reports)
+
+    assert result.decision == "short_mention"
+    assert result.publication_track == "applied_note"
+
+
 def test_fake_handling_editor_caps_financial_method_paper() -> None:
     provider = FakeModelProvider()
     dossier = {

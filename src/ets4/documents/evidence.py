@@ -17,6 +17,12 @@ class EvidenceCandidate:
 
 KEYWORD_RULES = (
     ("dataset", ("dataset", "data set", "sample", "panel", "observations")),
+    ("scenario", ("scenario", "scenarios", "stress test", "stress-test")),
+    ("judgement", ("judgement", "judgment", "expert judgement", "expert judgment")),
+    ("structural_break", ("structural break", "structural breaks", "regime shift")),
+    ("volatility", ("volatility", "garch", "figarch")),
+    ("trading", ("trading", "portfolio", "value at risk", "expected shortfall")),
+    ("Covid-19", ("covid-19", "covid", "pandemic")),
     ("metric", ("rmse", "mae", "crps", "brier", "accuracy", "score", "metric")),
     ("baseline", ("baseline", "benchmark", "compared with", "comparison")),
     ("limitation", ("limitation", "caveat", "fails", "weakness", "not robust")),

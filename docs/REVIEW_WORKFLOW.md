@@ -337,7 +337,7 @@ Question: what should be published, and with what caveats?
 Outputs:
 
 - final decision: reject, watchlist, short mention, full deep dive, needs human adjudication
-- publication category
+- publication track: deep_dive, applied_note, methods_watch, or reject
 - decision memo
 - critical caveats
 - human-review checklist

@@ -27,6 +27,9 @@ expansion, or website integration.
   abstract-page to PDF resolution, and HTML landing-page PDF discovery.
 - Evidence quality gates reject weak extraction and HTML boilerplate before
   review.
+- Evidence extraction now includes domain-specific benchmark kinds for
+  scenarios, judgement, structural breaks, Covid-19, volatility, and trading in
+  addition to the generic method/dataset/metric/baseline/code/limitation kinds.
 - The fake model provider is the deterministic baseline for triage, panel
   review, and handling-editor decisions. It now distinguishes applied economic
   forecasting signals from generic financial/time-series methods and caps
@@ -98,46 +101,48 @@ under the practitioner/applied forecasting rubric.
 - short-mention selection accuracy: 0.8333
 - publication-track accuracy: 0.1667
 - publication-track distribution: 2 applied notes, 4 rejects
-- latest deterministic replay run: `run-871a316d887d`
-- latest replay evaluation run: `eval-5330c084189437a2`
+- latest deterministic replay run: `run-1cb4e201b46d`
+- latest replay evaluation run: `eval-4d29d0af0bacc365`
 - replay triaged papers: 21
-- replay selected for full review: 7
-- replay reviewed papers: 7
+- replay selected for full review: 8
+- replay reviewed papers: 8
 - replay review errors: 0
 - replay triage decision accuracy: 0.8333
 - replay selected-paper precision: 0.75
 - replay relevant-paper recall: 0.75
 - replay required evidence-kind coverage: 0.3611
-- replay editorial decision accuracy: 0.1667
-- replay deep-dive selection accuracy: 0.8333
-- replay publication-track accuracy: 0.3333
-- replay per-paper mismatches: 18
+- replay editorial decision accuracy: 0.3333
+- replay deep-dive selection accuracy: 1.0
+- replay publication-track accuracy: 1.0
+- replay per-paper mismatches: 11
 
 Interpretation: the fake-provider baseline preserves citation validity on the
 accepted subset. The replayed baseline improved triage decision accuracy,
 deep-dive selection accuracy, publication-track accuracy, and total mismatch
 count compared with the stored pilot evaluation. Remaining failures now
-concentrate in publication-track/editorial calibration, short-mention
-selection, missing review outputs for rejected or unselected papers, and
-evidence-kind extraction gaps. The current result is still not strong enough for
-real-provider adoption or website integration.
+concentrate in evidence-kind extraction gaps, missing review outputs for
+rejected or unselected papers, and a few triage/editorial edge cases. The source
+now extracts the missing domain-specific evidence kinds for future document
+processing, but the ignored pilot SQLite evidence has not been regenerated with
+those rules. The current result is still not strong enough for real-provider
+adoption or website integration.
 
 ## Next Recommended Task
 
-Improve publication-track and editorial calibration for the practitioner/applied
-digest before adding a real provider.
+Regenerate evidence for the accepted subset or run a fresh deterministic pilot
+so the new domain-specific evidence-kind extraction can be evaluated.
 
 Suggested scope:
 
-- separate `methods_watch`/watchlist records from publishable applied notes in
-  evaluation and selection
-- make scenario/evaluation papers route toward applied notes unless they have a
-  direct forecasting contribution
-- preserve or improve the latest replay metrics on the accepted subset
+- re-extract or freshly process selected documents with the updated evidence
+  rules
+- replay and evaluate the accepted subset with `ets4 replay-baseline --errors`
+- check whether required evidence-kind coverage improves from 0.3611
+- preserve the latest publication-track and deep-dive selection improvements
 - keep accepted human labels as ignored local artifacts unless a curated test
   fixture is intentionally created
-- do not add a real model provider until editorial/publication-track accuracy
-  improves on accepted labels
+- do not add a real model provider until evidence coverage and editorial
+  accuracy improve on accepted labels
 
 Suggested command pattern:
 

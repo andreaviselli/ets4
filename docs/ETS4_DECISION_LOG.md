@@ -86,6 +86,36 @@ Reversal condition: If replayed runs diverge from real scheduled runs because
 stored evidence is stale or source mix changes materially, require a fresh
 pilot collection before comparing providers.
 
+## 2026-06-22: Separate Editorial Decision from Publication Track
+
+Decision: Handling-editor memos now include an explicit `publication_track`
+separate from the editorial decision.
+
+Context: The accepted pilot subset showed that a paper can deserve substantial
+editorial attention while still belonging in an applied-note lane rather than a
+main practitioner deep dive. Conversely, a watchlist or human-adjudication
+decision does not necessarily mean the paper should appear in the publication.
+The previous evaluation derived publication track from decision and selection
+state, which overcounted method-watch/watchlist papers as publishable items and
+made applied-note calibration hard to measure.
+
+Alternatives considered:
+
+- Keep deriving publication track from editorial decision and selection stage.
+- Add more decision enum values that mix handling status and publication lane.
+- Keep the editorial decision enum stable and add explicit publication-track
+  metadata to the memo.
+
+Consequence: Evaluation prefers the memo `publication_track` when present and
+falls back to derived mapping for older stored runs. Deep-dive draft selection
+now requires `full_deep_dive`, and short-mention selection requires
+`short_mention`; watchlist and human-adjudication records do not automatically
+become publication artifacts.
+
+Reversal condition: If later human labels need more lanes, extend
+`publication_track` values or add an issue type rather than folding track
+semantics back into editorial decisions.
+
 ## 2026-06-05: Treat Phase 7 Completion as a Validation Gate, Not Production
 
 Decision: Completing the seven implementation phases does not make ETS4

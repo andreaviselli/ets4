@@ -142,3 +142,84 @@ def test_publication_selection_does_not_publish_watchlist_as_short_mention(tmp_p
             (manifest.run_id,),
         ).fetchall()
         assert [row["paper_id"] for row in short_rows] == ["paper-1"]
+
+
+def test_publication_selection_keeps_short_mentions_out_of_deep_dive_slots(tmp_path) -> None:
+    base_config = load_config("config/feeds.example.toml")
+    config = replace(
+        base_config,
+        issue=replace(base_config.issue, max_deep_dive_drafts=2, max_short_mentions=2),
+    )
+    manifest = create_manifest(config, date(2026, 6, 8))
+
+    with connect(tmp_path / "ets4.sqlite") as conn:
+        init_db(conn)
+        insert_manifest(conn, manifest)
+        for paper_id, title, decision in (
+            ("paper-1", "Main applied forecast", "full_deep_dive"),
+            ("paper-2", "Applied note", "short_mention"),
+        ):
+            upsert_paper(
+                conn,
+                paper_id=paper_id,
+                title=title,
+                canonical_url=f"https://example.test/{paper_id}",
+                abstract="Forecasting GDP.",
+            )
+            conn.execute(
+                """
+                INSERT INTO review_dossiers (
+                    id, paper_id, run_id, document_id, evidence_count, dossier_json, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    f"dossier-{paper_id}",
+                    paper_id,
+                    manifest.run_id,
+                    None,
+                    6,
+                    "{}",
+                    "ok",
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO editorial_decisions (
+                    id, paper_id, run_id, dossier_id, provider, decision,
+                    deep_dive_score, confidence, memo_json, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    f"decision-{paper_id}",
+                    paper_id,
+                    manifest.run_id,
+                    f"dossier-{paper_id}",
+                    "fake",
+                    decision,
+                    8.0,
+                    0.8,
+                    "{}",
+                    "ok",
+                ),
+            )
+
+        selection = select_publication_candidates(conn, run_id=manifest.run_id, config=config)
+
+        assert selection.deep_dive_selected_count == 1
+        assert selection.short_mention_selected_count == 1
+        deep_rows = conn.execute(
+            """
+            SELECT paper_id FROM candidate_selections
+            WHERE run_id = ? AND selection_stage = 'deep_dive_draft'
+            """,
+            (manifest.run_id,),
+        ).fetchall()
+        short_rows = conn.execute(
+            """
+            SELECT paper_id FROM candidate_selections
+            WHERE run_id = ? AND selection_stage = 'short_mention'
+            """,
+            (manifest.run_id,),
+        ).fetchall()
+        assert [row["paper_id"] for row in deep_rows] == ["paper-1"]
+        assert [row["paper_id"] for row in short_rows] == ["paper-2"]

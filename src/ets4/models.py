@@ -47,6 +47,7 @@ class ReviewerReportResult:
 @dataclass(frozen=True)
 class EditorialDecisionResult:
     decision: str
+    publication_track: str
     deep_dive_score: float
     confidence: float
     rationale: str
@@ -58,6 +59,7 @@ class EditorialDecisionResult:
     def to_dict(self) -> dict[str, Any]:
         return {
             "decision": self.decision,
+            "publication_track": self.publication_track,
             "deep_dive_score": self.deep_dive_score,
             "confidence": self.confidence,
             "rationale": self.rationale,
@@ -92,9 +94,12 @@ class FakeModelProvider:
 
     forecasting_terms = (
         "forecast",
+        "forecasts",
         "forecasting",
         "predict",
+        "predicts",
         "prediction",
+        "predictions",
         "predictive",
         "nowcast",
         "nowcasting",
@@ -139,7 +144,6 @@ class FakeModelProvider:
         "finance",
         "financial",
         "garch",
-        "market",
         "portfolio",
         "trading",
         "value at risk",
@@ -152,6 +156,23 @@ class FakeModelProvider:
         "expected shortfall",
         "trading",
         "value at risk",
+    )
+    applied_note_terms = (
+        "alternative scenario",
+        "alternative scenarios",
+        "evaluation",
+        "historical",
+        "interpretation",
+        "retrospective",
+    )
+    applied_method_terms = (
+        "arma",
+        "bayesian",
+        "compositional",
+        "dirichlet",
+        "intervention",
+        "structural break",
+        "structural breaks",
     )
     hard_negative_terms = (
         "causal inference",
@@ -293,6 +314,7 @@ class FakeModelProvider:
         if not reports:
             return EditorialDecisionResult(
                 decision="needs_human_adjudication",
+                publication_track="reject",
                 deep_dive_score=0.0,
                 confidence=0.0,
                 rationale="No reviewer reports are available.",
@@ -332,22 +354,32 @@ class FakeModelProvider:
         has_adjacent_economic = _contains_any_term(paper_text, self.adjacent_economic_terms)
         has_financial_method = _contains_any_term(paper_text, self.financial_method_terms)
         track_fit = _track_fit(
+            paper_text=paper_text,
             has_forecasting=has_forecasting,
             has_economic=has_economic,
             has_adjacent_economic=has_adjacent_economic,
             has_financial_method=has_financial_method,
+            applied_note_terms=self.applied_note_terms,
+            applied_method_terms=self.applied_method_terms,
         )
 
         if disagreement >= 3.0 or len(weak_reports) >= 2:
             decision = "needs_human_adjudication"
-        elif adjusted_score >= 7.0 and evidence_count >= 5 and track_fit == "deep_dive":
+        elif adjusted_score >= 7.0 and evidence_count >= 5 and track_fit in {
+            "deep_dive",
+            "applied_method",
+        }:
             decision = "full_deep_dive"
-        elif adjusted_score >= 5.8 and track_fit in {"deep_dive", "applied_note"}:
+        elif adjusted_score >= 5.8 and track_fit in {"deep_dive", "applied_note", "applied_method"}:
             decision = "short_mention"
         elif adjusted_score >= 4.5 or track_fit == "methods_watch":
             decision = "watchlist"
         else:
             decision = "reject"
+        publication_track = _publication_track_for_decision(
+            decision=decision,
+            track_fit=track_fit,
+        )
 
         questions = []
         if evidence_count < 4:
@@ -363,6 +395,7 @@ class FakeModelProvider:
 
         return EditorialDecisionResult(
             decision=decision,
+            publication_track=publication_track,
             deep_dive_score=round(max(0.0, adjusted_score), 3),
             confidence=round(
                 max(0.2, min(0.85, 0.55 + evidence_count * 0.03 - disagreement * 0.05)),
@@ -401,18 +434,72 @@ def _review_recommendation(score: float, missing: tuple[str, ...]) -> str:
 
 def _track_fit(
     *,
+    paper_text: str,
     has_forecasting: bool,
     has_economic: bool,
     has_adjacent_economic: bool,
     has_financial_method: bool,
+    applied_note_terms: tuple[str, ...],
+    applied_method_terms: tuple[str, ...],
 ) -> str:
-    if has_forecasting and has_economic:
+    if has_financial_method and not _contains_any_term(paper_text, economic_terms_for_track()):
+        return "reject"
+    if has_forecasting and has_economic and _contains_any_term(paper_text, applied_note_terms):
+        return "applied_note"
+    if has_forecasting and has_economic and _contains_any_term(paper_text, applied_method_terms):
+        return "applied_method"
+    if has_forecasting and has_economic and _contains_any_term(paper_text, direct_forecast_terms()):
         return "deep_dive"
-    if has_economic:
+    if has_forecasting and has_economic:
         return "applied_note"
     if has_forecasting and (has_financial_method or has_adjacent_economic):
         return "methods_watch"
     return "reject"
+
+
+def _publication_track_for_decision(*, decision: str, track_fit: str) -> str:
+    if decision == "full_deep_dive":
+        return "deep_dive" if track_fit == "deep_dive" else "applied_note"
+    if decision == "short_mention":
+        return "applied_note"
+    if decision == "watchlist":
+        return "methods_watch" if track_fit == "methods_watch" else "reject"
+    if decision == "needs_human_adjudication":
+        return "reject"
+    return "reject"
+
+
+def direct_forecast_terms() -> tuple[str, ...]:
+    return (
+        "forecast",
+        "forecasts",
+        "forecasting",
+        "predict",
+        "predicts",
+        "prediction",
+        "predictions",
+        "predictive",
+        "nowcast",
+        "nowcasting",
+    )
+
+
+def economic_terms_for_track() -> tuple[str, ...]:
+    return (
+        "economic",
+        "economy",
+        "macroeconomic",
+        "inflation",
+        "gdp",
+        "monetary",
+        "central bank",
+        "federal reserve",
+        "reserves",
+        "employment",
+        "labor",
+        "prices",
+        "scenario",
+    )
 
 
 def _contains_any_term(text: str, terms: tuple[str, ...]) -> bool:

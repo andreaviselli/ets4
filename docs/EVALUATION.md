@@ -109,6 +109,9 @@ improving evidence-kind extraction.
 
 For machine-readable inspection, `--json` includes a `mismatches` array with the
 same per-paper fields and an `error_summary` object with the grouped counts.
+For new runs, publication-track accuracy uses the handling-editor memo's
+explicit `publication_track`; older stored runs fall back to a derived track
+from editorial decision and selection state.
 
 To compare the current deterministic baseline against an earlier collected run
 without fetching sources again, replay the source run:
