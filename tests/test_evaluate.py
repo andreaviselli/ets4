@@ -5,6 +5,7 @@ from ets4.cli import main
 from ets4.config import load_config
 from ets4.documents import process_document_for_paper
 from ets4.evaluate import (
+    benchmark_validation_dict,
     create_benchmark_subset,
     create_benchmark_template,
     error_summary_dict,
@@ -381,10 +382,19 @@ def test_validate_benchmark_file_reports_label_consistency_warnings(tmp_path) ->
     assert result.ready_for_evaluation is True
     assert result.error_count == 0
     assert result.warning_count == 2
-    assert result.paper_statuses[0].warnings == (
+    warnings = result.paper_statuses[0].warnings
+    assert tuple(warning.code for warning in warnings) == (
         "full_deep_dive_with_non_deep_dive_track",
         "full_deep_dive_with_short_mention_selection",
     )
+    payload = benchmark_validation_dict(result)
+    assert payload["warning_count"] == 2
+    assert payload["warnings"][0]["paper_id"] == "paper-1"
+    assert payload["warnings"][0]["fields"] == [
+        "expected_editorial_decision",
+        "publication_track",
+    ]
+    assert "Choose whether this paper belongs" in payload["warnings"][0]["suggested_action"]
 
 
 def test_create_benchmark_subset_preserves_draft_labels(tmp_path) -> None:
@@ -468,6 +478,67 @@ def test_cli_benchmark_status_writes_subset(tmp_path) -> None:
     payload = json.loads(subset_path.read_text(encoding="utf-8"))
     assert len(payload["papers"]) == 1
     assert payload["papers"][0]["label_status"] == "needs_human_label"
+
+
+def test_cli_benchmark_status_json_includes_warning_and_subset_details(tmp_path, capsys) -> None:
+    labels_path = tmp_path / "warning-labels.json"
+    subset_path = tmp_path / "warning-subset.json"
+    labels_path.write_text(
+        json.dumps(
+            {
+                "version": "warning-fixture-v1",
+                "papers": [
+                    {
+                        "paper_id": "paper-1",
+                        "label_status": "accepted",
+                        "title": "Applied method paper",
+                        "relevance_label": "directly_relevant",
+                        "audience_fit": "applied_researcher",
+                        "application_type": "forecasting",
+                        "economic_relevance": "medium",
+                        "forecasting_contribution": "novel_method",
+                        "publication_track": "applied_note",
+                        "expected_category": "directly_relevant",
+                        "expected_triage_decision": "assign_reviewers",
+                        "expected_editorial_decision": "full_deep_dive",
+                        "expected_deep_dive": True,
+                        "expected_short_mention": True,
+                        "required_evidence_kinds": ["method"],
+                        "hard_negative": False,
+                        "high_value": True,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert (
+        main(
+            [
+                "--config",
+                "config/feeds.example.toml",
+                "benchmark-status",
+                "--labels",
+                str(labels_path),
+                "--subset-output",
+                str(subset_path),
+                "--json",
+            ]
+        )
+        == 0
+    )
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ready_for_evaluation"] is True
+    assert payload["warning_count"] == 2
+    assert payload["warnings"][0]["title"] == "Applied method paper"
+    assert payload["warnings"][0]["code"] == "full_deep_dive_with_non_deep_dive_track"
+    assert payload["subset"] == {
+        "path": str(subset_path),
+        "paper_count": 1,
+        "paper_ids": ["paper-1"],
+    }
 
 
 def _create_evaluable_run(db_path) -> str:

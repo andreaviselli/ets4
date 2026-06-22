@@ -12,6 +12,7 @@ from .evaluate import (
     BenchmarkValidationResult,
     EvaluationMismatch,
     EvaluationResult,
+    benchmark_validation_dict,
     create_benchmark_subset,
     create_benchmark_template,
     evaluate_run,
@@ -206,6 +207,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         default=[],
         help="Paper id to force into the subset. May be passed more than once.",
+    )
+    benchmark_status_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print machine-readable benchmark status, including warning details.",
     )
     benchmark_status_parser.set_defaults(func=cmd_benchmark_status)
 
@@ -665,7 +671,7 @@ def cmd_benchmark_status(args: argparse.Namespace) -> int:
     except (OSError, json.JSONDecodeError) as exc:
         raise SystemExit(f"Could not read benchmark JSON: {exc}") from exc
 
-    _print_benchmark_validation(result)
+    payload = benchmark_validation_dict(result)
     if args.subset_output:
         try:
             subset = create_benchmark_subset(
@@ -676,9 +682,21 @@ def cmd_benchmark_status(args: argparse.Namespace) -> int:
             )
         except ValueError as exc:
             raise SystemExit(str(exc)) from exc
-        print(f"Subset written: {subset.path}")
-        print(f"Subset papers: {subset.paper_count}")
-        print(f"Subset paper ids: {', '.join(subset.paper_ids)}")
+        payload["subset"] = {
+            "path": str(subset.path),
+            "paper_count": subset.paper_count,
+            "paper_ids": list(subset.paper_ids),
+        }
+
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        _print_benchmark_validation(result)
+        subset_payload = payload.get("subset")
+        if isinstance(subset_payload, dict):
+            print(f"Subset written: {subset_payload['path']}")
+            print(f"Subset papers: {subset_payload['paper_count']}")
+            print(f"Subset paper ids: {', '.join(subset_payload['paper_ids'])}")
     return 1 if result.error_count else 0
 
 
@@ -1201,8 +1219,11 @@ def _print_benchmark_validation(result: BenchmarkValidationResult) -> None:
         if status.invalid_fields:
             details.append(f"invalid={','.join(status.invalid_fields)}")
         if status.warnings:
-            details.append(f"warnings={','.join(status.warnings)}")
-        print(f"- {status.paper_id}: {'; '.join(details)}")
+            details.append(f"warnings={','.join(warning.code for warning in status.warnings)}")
+        title = f" ({status.title})" if status.title else ""
+        print(f"- {status.paper_id}{title}: {'; '.join(details)}")
+        for warning in status.warnings:
+            print(f"  - {warning.code}: {warning.reason} {warning.suggested_action}")
 
 
 if __name__ == "__main__":

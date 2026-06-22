@@ -12,6 +12,8 @@ from .template import BenchmarkTemplateResult, create_benchmark_template
 from .validate import (
     BenchmarkSubsetResult,
     BenchmarkValidationResult,
+    PaperLabelWarning,
+    benchmark_validation_dict,
     create_benchmark_subset,
     validate_benchmark_file,
 )
@@ -24,6 +26,8 @@ __all__ = [
     "EvaluationMismatch",
     "EvaluationResult",
     "PaperLabel",
+    "PaperLabelWarning",
+    "benchmark_validation_dict",
     "create_benchmark_template",
     "create_benchmark_subset",
     "error_summary_dict",

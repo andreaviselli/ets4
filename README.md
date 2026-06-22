@@ -127,8 +127,9 @@ which is ignored by Git. The template is intentionally not evaluable until the
 human editor fills the labels and sets each `label_status` to `accepted`.
 
 `benchmark-status` validates benchmark JSON, reports labels that are still draft
-or incomplete, and can write a smaller copied subset for human editing. It never
-fills labels or marks labels accepted.
+or incomplete, emits accepted-label consistency warnings, and can write a
+smaller copied subset for human editing. Add `--json` for a machine-readable
+status and warning audit. It never fills labels or marks labels accepted.
 
 `evaluate` compares a completed run against an accepted labeled benchmark JSON
 file, stores aggregate and per-paper evaluation records in SQLite, and reports

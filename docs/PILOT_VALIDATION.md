@@ -98,7 +98,9 @@ template and report labels that are still draft or incomplete. The same command
 can write a smaller copied subset with `--subset-output` and `--subset-size`;
 subset creation preserves draft labels and does not infer accepted labels.
 Accepted-label consistency warnings are advisory, but they should be resolved
-before using a benchmark as a provider-adoption gate.
+before using a benchmark as a provider-adoption gate. Use
+`ets4 benchmark-status --json` when you need a machine-readable warning audit
+for handoff or review tooling.
 
 Minimum initial target:
 

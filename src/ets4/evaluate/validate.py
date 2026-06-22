@@ -40,13 +40,21 @@ RECOMMENDED_LABEL_FIELDS = (
 
 
 @dataclass(frozen=True)
+class PaperLabelWarning:
+    code: str
+    fields: tuple[str, ...]
+    reason: str
+    suggested_action: str
+
+
+@dataclass(frozen=True)
 class PaperLabelStatus:
     paper_id: str
     title: str | None
     label_status: str | None
     missing_fields: tuple[str, ...]
     invalid_fields: tuple[str, ...]
-    warnings: tuple[str, ...] = ()
+    warnings: tuple[PaperLabelWarning, ...] = ()
 
     @property
     def is_accepted(self) -> bool:
@@ -86,6 +94,70 @@ class BenchmarkSubsetResult:
     path: Path
     paper_count: int
     paper_ids: tuple[str, ...]
+
+
+_WARNING_DETAILS: dict[str, PaperLabelWarning] = {
+    "reject_triage_with_positive_category": PaperLabelWarning(
+        code="reject_triage_with_positive_category",
+        fields=("expected_triage_decision", "expected_category"),
+        reason=(
+            "The label rejects the paper at triage but keeps a positive final "
+            "category, which can make category accuracy disagree with decision accuracy."
+        ),
+        suggested_action=(
+            "Confirm whether the paper is in-scope but not worth review, or change "
+            "expected_category to not_relevant for the practitioner/applied product."
+        ),
+    ),
+    "full_deep_dive_without_deep_dive_selection": PaperLabelWarning(
+        code="full_deep_dive_without_deep_dive_selection",
+        fields=("expected_editorial_decision", "expected_deep_dive"),
+        reason="A full-deep-dive editorial decision normally implies deep-dive selection.",
+        suggested_action="Set expected_deep_dive to true or change expected_editorial_decision.",
+    ),
+    "full_deep_dive_with_short_mention_selection": PaperLabelWarning(
+        code="full_deep_dive_with_short_mention_selection",
+        fields=("expected_editorial_decision", "expected_short_mention"),
+        reason="A full-deep-dive editorial decision should not also be a short mention.",
+        suggested_action="Set expected_short_mention to false or change expected_editorial_decision.",
+    ),
+    "full_deep_dive_with_non_deep_dive_track": PaperLabelWarning(
+        code="full_deep_dive_with_non_deep_dive_track",
+        fields=("expected_editorial_decision", "publication_track"),
+        reason="A full-deep-dive editorial decision is paired with a non-deep-dive track.",
+        suggested_action="Choose whether this paper belongs on the deep_dive or applied_note track.",
+    ),
+    "short_mention_with_deep_dive_selection": PaperLabelWarning(
+        code="short_mention_with_deep_dive_selection",
+        fields=("expected_editorial_decision", "expected_deep_dive"),
+        reason="A short-mention editorial decision should not select a deep dive.",
+        suggested_action="Set expected_deep_dive to false or change expected_editorial_decision.",
+    ),
+    "short_mention_without_short_mention_selection": PaperLabelWarning(
+        code="short_mention_without_short_mention_selection",
+        fields=("expected_editorial_decision", "expected_short_mention"),
+        reason="A short-mention editorial decision normally implies short-mention selection.",
+        suggested_action="Set expected_short_mention to true or change expected_editorial_decision.",
+    ),
+    "short_mention_with_non_applied_note_track": PaperLabelWarning(
+        code="short_mention_with_non_applied_note_track",
+        fields=("expected_editorial_decision", "publication_track"),
+        reason="A short mention is paired with a publication track other than applied_note.",
+        suggested_action="Use publication_track applied_note or change expected_editorial_decision.",
+    ),
+    "deep_dive_track_without_deep_dive_selection": PaperLabelWarning(
+        code="deep_dive_track_without_deep_dive_selection",
+        fields=("publication_track", "expected_deep_dive"),
+        reason="A deep_dive publication track normally implies deep-dive selection.",
+        suggested_action="Set expected_deep_dive to true or change publication_track.",
+    ),
+    "applied_note_track_without_short_mention_selection": PaperLabelWarning(
+        code="applied_note_track_without_short_mention_selection",
+        fields=("publication_track", "expected_short_mention"),
+        reason="An applied_note publication track normally implies short-mention selection.",
+        suggested_action="Set expected_short_mention to true or change publication_track.",
+    ),
+}
 
 
 def validate_benchmark_file(path: str | Path) -> BenchmarkValidationResult:
@@ -173,6 +245,34 @@ def validate_benchmark_file(path: str | Path) -> BenchmarkValidationResult:
     )
 
 
+def benchmark_validation_dict(result: BenchmarkValidationResult) -> dict[str, Any]:
+    paper_statuses = [_paper_status_dict(status) for status in result.paper_statuses]
+    warnings = [
+        {
+            "paper_id": status.paper_id,
+            "title": status.title,
+            **_warning_dict(warning),
+        }
+        for status in result.paper_statuses
+        for warning in status.warnings
+    ]
+    return {
+        "path": str(result.path),
+        "version": result.version,
+        "paper_count": result.paper_count,
+        "accepted_count": result.accepted_count,
+        "not_accepted_count": result.not_accepted_count,
+        "incomplete_count": result.incomplete_count,
+        "error_count": result.error_count,
+        "warning_count": result.warning_count,
+        "ready_for_evaluation": result.ready_for_evaluation,
+        "top_level_errors": list(result.top_level_errors),
+        "duplicate_paper_ids": list(result.duplicate_paper_ids),
+        "warnings": warnings,
+        "paper_statuses": paper_statuses,
+    }
+
+
 def create_benchmark_subset(
     input_path: str | Path,
     output_path: str | Path,
@@ -239,7 +339,7 @@ def _paper_label_status(paper: dict[str, Any], *, index: int) -> PaperLabelStatu
         label_status=_optional_string(paper.get("label_status")),
         missing_fields=tuple(sorted(set(missing))),
         invalid_fields=tuple(sorted(set(invalid))),
-        warnings=tuple(sorted(set(warnings))),
+        warnings=warnings,
     )
 
 
@@ -319,7 +419,7 @@ def _invalid_fields(paper: dict[str, Any]) -> tuple[str, ...]:
     return tuple(invalid)
 
 
-def _label_warnings(paper: dict[str, Any]) -> tuple[str, ...]:
+def _label_warnings(paper: dict[str, Any]) -> tuple[PaperLabelWarning, ...]:
     warnings: list[str] = []
     expected_triage = paper.get("expected_triage_decision")
     expected_category = paper.get("expected_category")
@@ -361,7 +461,76 @@ def _label_warnings(paper: dict[str, Any]) -> tuple[str, ...]:
         if expected_short_mention is True:
             warnings.append(f"{publication_track}_track_with_short_mention_selection")
 
-    return tuple(warnings)
+    return tuple(_warning_for_code(code) for code in sorted(set(warnings)))
+
+
+def _paper_status_dict(status: PaperLabelStatus) -> dict[str, Any]:
+    return {
+        "paper_id": status.paper_id,
+        "title": status.title,
+        "label_status": status.label_status,
+        "accepted": status.is_accepted,
+        "incomplete": status.is_incomplete,
+        "missing_fields": list(status.missing_fields),
+        "invalid_fields": list(status.invalid_fields),
+        "warnings": [_warning_dict(warning) for warning in status.warnings],
+    }
+
+
+def _warning_dict(warning: PaperLabelWarning) -> dict[str, Any]:
+    return {
+        "code": warning.code,
+        "fields": list(warning.fields),
+        "reason": warning.reason,
+        "suggested_action": warning.suggested_action,
+    }
+
+
+def _warning_for_code(code: str) -> PaperLabelWarning:
+    if code in _WARNING_DETAILS:
+        return _WARNING_DETAILS[code]
+    if code.endswith("_track_with_deep_dive_selection"):
+        track = code.removesuffix("_track_with_deep_dive_selection")
+        return PaperLabelWarning(
+            code=code,
+            fields=("publication_track", "expected_deep_dive"),
+            reason=f"A {track} publication track should usually not select a deep dive.",
+            suggested_action="Set expected_deep_dive to false or change publication_track.",
+        )
+    if code.endswith("_track_with_short_mention_selection"):
+        track = code.removesuffix("_track_with_short_mention_selection")
+        return PaperLabelWarning(
+            code=code,
+            fields=("publication_track", "expected_short_mention"),
+            reason=f"A {track} publication track should usually not select a short mention.",
+            suggested_action="Set expected_short_mention to false or change publication_track.",
+        )
+    if code.endswith("_with_deep_dive_selection"):
+        decision = code.removesuffix("_with_deep_dive_selection")
+        return PaperLabelWarning(
+            code=code,
+            fields=("expected_editorial_decision", "expected_deep_dive"),
+            reason=f"A {decision} label should usually not select a deep dive.",
+            suggested_action=(
+                "Set expected_deep_dive to false or change expected_editorial_decision."
+            ),
+        )
+    if code.endswith("_with_short_mention_selection"):
+        decision = code.removesuffix("_with_short_mention_selection")
+        return PaperLabelWarning(
+            code=code,
+            fields=("expected_editorial_decision", "expected_short_mention"),
+            reason=f"A {decision} label should usually not select a short mention.",
+            suggested_action=(
+                "Set expected_short_mention to false or change expected_editorial_decision."
+            ),
+        )
+    return PaperLabelWarning(
+        code=code,
+        fields=(),
+        reason="The accepted label contains an internally mixed benchmark signal.",
+        suggested_action="Review the label fields and align the expected outcome axes.",
+    )
 
 
 def _append_invalid_choice(

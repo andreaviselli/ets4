@@ -39,8 +39,9 @@ expansion, or website integration.
 - `ets4 benchmark-template` creates human-editable benchmark JSON from a
   completed run.
 - `ets4 benchmark-status` validates benchmark JSON, reports draft or incomplete
-  labels, and can write a smaller copied subset for human editing without
-  accepting or inventing labels.
+  labels, emits accepted-label consistency warnings with human-resolution
+  suggestions, can print the audit as JSON, and can write a smaller copied
+  subset for human editing without accepting or inventing labels.
 - `ets4 evaluate` rejects draft benchmark labels unless each label is marked
   `label_status: "accepted"`.
 - Benchmark labels now include practitioner/applied rubric fields: audience
@@ -149,6 +150,8 @@ Suggested scope:
 - decide whether the VaR/equity-market label should keep a positive category
   despite triage rejection, or whether `expected_category` should match the
   rejected practitioner/applied-product scope
+- use `ets4 benchmark-status --json --labels ...` to inspect the exact warning
+  records before changing ignored local labels
 - preserve hard-negative false-positive rate 0, evidence coverage 1.0, and
   publication-track accuracy 1.0 on the accepted subset
 - keep accepted human labels as ignored local artifacts unless a curated test
