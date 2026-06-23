@@ -39,7 +39,7 @@ def test_fake_provider_routes_financial_method_paper_to_borderline() -> None:
     assert result.category_hint == "paper_of_interest"
 
 
-def test_fake_provider_rejects_trading_risk_without_applied_economic_fit() -> None:
+def test_fake_provider_routes_trading_risk_without_applied_economic_fit_to_borderline() -> None:
     provider = FakeModelProvider()
 
     result = provider.triage(
@@ -47,11 +47,11 @@ def test_fake_provider_rejects_trading_risk_without_applied_economic_fit() -> No
         "We forecast downside risk for equity trading portfolios.",
     )
 
-    assert result.decision == "reject"
-    assert result.category_hint == "not_relevant"
+    assert result.decision == "borderline"
+    assert result.category_hint == "paper_of_interest"
 
 
-def test_fake_provider_rejects_descriptive_finance_without_applied_economic_fit() -> None:
+def test_fake_provider_rejects_descriptive_finance_without_forecasting_signal() -> None:
     provider = FakeModelProvider()
 
     result = provider.triage(

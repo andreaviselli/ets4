@@ -114,38 +114,37 @@ under the practitioner/applied forecasting rubric.
 - benchmark coverage: 6/100 accepted labels, 3/20 full-review examples,
   hard-negative/directly-relevant/transferable-method/weak-full-text coverage
   targets met
-- latest deterministic replay run: `run-1f7f74fb991b`
-- latest replay evaluation run: `eval-fed29692e79eac8f`
+- latest deterministic replay run: `run-d89f0363fdd3`
+- latest replay evaluation run: `eval-c8a246642d17ab57`
 - replay triaged papers: 21
-- replay selected for full review: 7
-- replay reviewed papers: 7
-- replay review errors: 0
-- replay triage decision accuracy: 1.0
-- replay triage category accuracy: 0.8333
-- replay selected-paper precision: 1.0
-- replay relevant-paper recall: 0.75
+- replay selected for full review: 9
+- replay reviewed papers: 9
+- replay review errors: 1
+- replay triage decision accuracy: 0.6667
+- replay triage category accuracy: 0.6667
+- replay selected-paper precision: 0.8
+- replay relevant-paper recall: 1.0
 - replay required evidence-kind coverage: 1.0
-- replay editorial decision accuracy: 1.0
+- replay editorial decision accuracy: 0.6667
 - replay deep-dive selection accuracy: 0.8333
 - replay short-mention selection accuracy: 1.0
-- replay publication-track accuracy: 1.0
-- replay per-paper mismatches: 2
+- replay publication-track accuracy: 0.8333
+- replay per-paper mismatches: 8
 - provider gate status: not ready
 - provider gate failed checks: 4
 - provider gate blockers: benchmark warnings, 6/100 labeled papers, 3/20
-  full-review examples, relevant recall 0.75/0.8
+  full-review examples, editorial decision accuracy 0.6667/0.8
 
 Interpretation: the fake-provider baseline preserves citation validity on the
-accepted subset. The replayed baseline improved triage decision accuracy,
-triage category accuracy, selected-paper precision, editorial decision
-accuracy, deep-dive selection accuracy, publication-track accuracy,
-evidence-kind coverage, and total mismatch count compared with the stored pilot
-evaluation. Evidence-kind coverage is now complete on the accepted subset after
-refreshing stored pages. The remaining two mismatches align with
-benchmark-status warnings: one applied-method paper is labeled for both
-deep-dive and applied-note treatment, and one VaR/equity-market paper expects
-direct relevance categorization while also expecting triage rejection. The
-current result is still too small and label-warning-bound for real-provider
+accepted subset. After auditing overfitting risk, the fake provider no longer
+uses narrow VaR/trading or long-range-dependence finance rejection terms derived
+from the six-paper subset. The less-tailored replay keeps evidence coverage,
+citation validity, hard-negative precision, and relevant recall strong, but it
+regresses triage/editorial accuracy on the tiny accepted subset. That is the
+preferred tradeoff: the fake provider should remain a stable conservative
+pipeline baseline, not a rule set optimized for six labels. Evidence-kind
+coverage is now complete on the accepted subset after refreshing stored pages.
+The current result is still too small and label-warning-bound for real-provider
 adoption or website integration.
 
 ## Next Recommended Task
@@ -166,7 +165,7 @@ Suggested scope:
 - expand the accepted benchmark by at least 94 triage labels and 17 full-review
   labels to reach the documented minimum provider-gate coverage target
 - preserve hard-negative false-positive rate 0, evidence coverage 1.0, and
-  publication-track accuracy 1.0 on the accepted subset
+  citation validity on the accepted subset
 - keep accepted human labels as ignored local artifacts unless a curated test
   fixture is intentionally created
 - do not add a real model provider until evidence coverage and editorial

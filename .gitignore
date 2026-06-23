@@ -30,6 +30,8 @@ exports/*
 !exports/.gitkeep
 *.sqlite
 *.sqlite3
+docs/*.html
+docs/*_files/
 
 # Removed local legacy/generated directories
 deepdives/

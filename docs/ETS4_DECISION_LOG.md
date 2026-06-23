@@ -4,6 +4,35 @@ This file records durable architectural and editorial decisions. It is not a
 changelog. Add entries when a future agent or human editor would need the
 rationale, consequences, or reversal conditions.
 
+## 2026-06-23: Remove Narrow Fake-Provider Subset Tuning
+
+Decision: Remove narrow fake-provider finance rejection terms that were derived
+from the six-paper accepted subset, including special handling for VaR/trading
+risk phrases and descriptive long-range-dependence finance phrases.
+
+Context: The first accepted subset is useful for debugging the workflow, but it
+is too small to justify paper-specific fake-provider calibration. Further
+optimizing the deterministic baseline against those six labels would create a
+misleading sense of accuracy and weaken the reason to add a real LLM provider
+behind the measured gate.
+
+Alternatives considered:
+
+- Keep the tuned fake provider because it produced fewer subset mismatches.
+- Add more paper-specific finance terms for the remaining residual cases.
+- Remove narrow tuning and accept worse subset metrics until broader labels or
+  a real provider justify more general behavior.
+
+Consequence: The fake provider again treats explicit financial forecasting
+without applied economic fit as borderline/methods-watch rather than hard
+rejecting specific finance phrases. Current subset metrics are worse, but the
+baseline is less overfit and better aligned with its role as a deterministic
+pipeline control.
+
+Reversal condition: Reintroduce stricter finance triage only from a broader
+human-labeled benchmark or as explicit editorial policy, not from a handful of
+subset examples.
+
 ## 2026-06-22: Codify the Real-Provider Adoption Gate
 
 Decision: `ets4 evaluate --gate` and `ets4 replay-baseline --gate` now report a
