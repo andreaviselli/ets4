@@ -4,6 +4,39 @@ This file records durable architectural and editorial decisions. It is not a
 changelog. Add entries when a future agent or human editor would need the
 rationale, consequences, or reversal conditions.
 
+## 2026-06-23: Use Application Plus Novelty as the Core Selection Rubric
+
+Decision: ETS4 should classify papers using a concise general rubric: selected
+papers should combine a useful applied forecasting application with either
+methodological novelty or a genuinely interesting empirical angle on an existing
+method.
+
+Context: The first OpenAI replay overpromoted papers whose application value,
+novelty, or empirical angle was not strong enough for the main product. A
+term-specific correction would overfit the tiny accepted subset and make future
+provider behavior brittle. The human editor clarified that the real editorial
+judgment is not based on method names or source categories, but on whether a
+paper is applied, useful to practitioners or applied researchers in economic
+time-series forecasting, and has enough novelty or fresh empirical angle to be
+worth readers' attention.
+
+Alternatives considered:
+
+- Add paper-specific or method-specific rejection terms from the accepted subset.
+- Provide a long multi-axis checklist to the provider.
+- Use a short rubric focused on applied forecasting value plus novelty or
+  interesting empirical angle.
+
+Consequence: Prompts and labels should avoid narrow method-name rules. Pure
+theory, pure methodology, non-forecasting work, doubtful-integrity work,
+low-transferability applications, and uninteresting research questions should
+be rejected. Useful but routine applied papers may become applied notes, while
+novel methods with weak application fit should not become deep dives.
+
+Reversal condition: If broader human labels show that the rubric suppresses
+important papers or admits too much low-value applied work, revise the rubric at
+the conceptual level rather than adding paper-specific terms.
+
 ## 2026-06-23: Add OpenAI Provider for Evaluation, Not Adoption
 
 Decision: Implement an OpenAI provider behind the existing ETS4 model-provider

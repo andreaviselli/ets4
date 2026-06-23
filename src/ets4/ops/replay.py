@@ -68,6 +68,7 @@ def replay_baseline_run(
         run_id=manifest.run_id,
         config=config,
         update_paper_status=False,
+        require_successful_document=True,
     )
     reviewed_count, review_error_count = _replay_reviews(
         conn,

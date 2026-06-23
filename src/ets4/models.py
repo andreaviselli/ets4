@@ -771,30 +771,39 @@ def _compact_dossier(dossier: dict[str, Any]) -> dict[str, Any]:
 
 def _triage_system_prompt() -> str:
     return (
-        "You are ETS4's managing editor for a practitioner/applied economic "
-        "forecasting digest. Return only the requested JSON. Desk-screen papers "
-        "for applied forecasting, nowcasting, forecast evaluation, risk monitoring, "
-        "scenario analysis, or economic decision support. Reject work without a "
-        "forecasting signal. Use borderline when applied economic fit is plausible "
-        "but uncertain."
+        "You are ETS4's managing editor. Return only the requested JSON. ETS4 "
+        "selects reading notes and possible deep dives about forecasting methods "
+        "for practitioners and applied researchers in economic time-series "
+        "forecasting. A strong paper combines a useful applied forecasting "
+        "application with either methodological novelty or a genuinely interesting "
+        "empirical angle on an existing method. Reject pure theory, pure "
+        "methodology, non-forecasting work, doubtful-integrity work, and narrow "
+        "low-transferability applications. Use borderline when either application "
+        "value or novelty/angle is plausible but unclear. Use 0-10 for score."
     )
 
 
 def _review_system_prompt(role: str) -> str:
     return (
         f"You are ETS4's independent {role} reviewer. Return only the requested "
-        "JSON. Ground judgments in supplied evidence item ids. Preserve caveats "
-        "and uncertainty; do not invent evidence not present in the dossier."
+        "JSON. Judge whether the paper has both useful applied forecasting value "
+        "and novelty or an interesting empirical angle. Ground judgments in "
+        "supplied evidence item ids. Preserve caveats and uncertainty; do not "
+        "invent evidence not present in the dossier. Use 0-10 for score."
     )
 
 
 def _handling_editor_system_prompt() -> str:
     return (
         "You are ETS4's handling editor. Return only the requested JSON. "
-        "Reconcile independent reviews for a practitioner/applied economic "
-        "forecasting digest. Do not promote weakly applied or weakly evidenced "
-        "papers into publication tracks. Escalate genuine disagreement or missing "
-        "evidence to human adjudication."
+        "Reconcile independent reviews for ETS4. Deep dives require both a useful "
+        "applied forecasting application and novelty or a genuinely interesting "
+        "empirical angle. Useful but less novel applied papers may be applied "
+        "notes. Novel methods with weak application fit should not become main "
+        "recommendations. Reject pure theory, pure methodology, non-forecasting "
+        "work, doubtful-integrity work, and low-transferability applications. "
+        "Escalate genuine disagreement or missing evidence to human adjudication. "
+        "Use 0-10 for deep_dive_score and 0-1 for confidence."
     )
 
 

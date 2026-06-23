@@ -164,6 +164,14 @@ The core question is not "is this paper interesting?" It is:
 > risk, stress-test scenarios, or make decisions in an economic, financial,
 > policy, energy, business, or market setting?
 
+The preferred paper combines a useful applied forecasting application with
+either methodological novelty or a genuinely interesting empirical angle on an
+existing method. Pure theory, pure methodology, non-forecasting work, doubtful
+integrity, low-transferability applications, and uninteresting research
+questions should be labeled out of the main product. A useful but routine
+application may be an applied note; novelty without a useful application should
+not become a deep dive.
+
 Academic novelty and social-media curiosity are secondary. They can justify a
 `methods_watch` or a hook for dissemination, but they should not turn a weakly
 applied paper into a main recommendation.

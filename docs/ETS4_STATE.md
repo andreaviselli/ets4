@@ -39,6 +39,10 @@ expansion, or website integration.
   independent reviewer reports, and handling-editor decisions, and records
   provider token usage in SQLite when returned by the API. The committed default
   remains `fake`.
+- OpenAI provider prompts now use the concise general editorial rubric: useful
+  applied forecasting application plus methodological novelty or a genuinely
+  interesting empirical angle. They intentionally avoid paper-specific or
+  method-name tuning.
 - Exports write draft Markdown and internal notes under ignored `exports/`.
 - Archive bundles and run events are implemented for reproducibility.
 - `ets4 benchmark-template` creates human-editable benchmark JSON from a
@@ -176,29 +180,29 @@ baseline, not a rule set optimized for a handful of labels. Evidence-kind
 coverage is now complete on the accepted subset after refreshing stored pages.
 The first OpenAI replay confirms that the real-provider interface works and
 that structured outputs can be evaluated, but it is not yet calibrated for the
-practitioner/applied product. The OpenAI provider overpromoted finance and
-methods papers, selected many papers without usable stored documents for full
+practitioner/applied product. The OpenAI provider overpromoted papers whose
+application value, novelty, or empirical angle was not strong enough for the
+main product, selected many papers without usable stored documents for full
 review, and routed too many papers into deep-dive publication tracks. The
 current result is still too small, label-warning-bound, and provider-accuracy
-limited for real-provider adoption or website integration.
+limited for real-provider adoption or website integration. After this result,
+the OpenAI prompts were simplified around the general application-plus-novelty
+rubric, and replay-mode full-review selection was changed to require a
+successful stored document before spending review calls.
 
 ## Next Recommended Task
 
-Calibrate the OpenAI-provider path before any further provider adoption
-decision. The first OpenAI replay works technically but fails the provider gate
-and overselects weakly applied finance/method papers.
+Rerun the calibrated `gpt-5.4-mini` OpenAI replay and compare it against both
+the fake baseline and the first OpenAI replay.
 
 Suggested scope:
 
-- tighten OpenAI triage prompts or post-triage gates so generic
-  financial/method papers become `borderline`, `methods_watch`, or `reject`
-  rather than `assign_reviewers`/`deep_dive`
-- prevent full-review selection from spending review calls on papers without
-  successful stored documents when running replay/evaluation, or explicitly
-  count those as retrieval failures before provider comparison
-- normalize provider scoring instructions so `deep_dive_score` uses ETS4's
-  documented 0-10 scale rather than a 0-1 confidence-like scale
-- rerun the OpenAI replay after calibration and compare against
+- use the ignored local `config/feeds.toml` with `provider = "openai"` and
+  `gpt-5.4-mini`
+- run `replay-baseline` against `run-960b75015cc3` using the accepted subset
+  labels and `--errors --gate`
+- compare selected count, missing review outputs, deep-dive score scale,
+  editorial decision accuracy, and publication-track accuracy against
   `run-d89f0363fdd3` and `run-6d84b35b31a8`
 - resolve accepted-label warnings where editorial decision, publication track,
   category, or selection fields point in different directions

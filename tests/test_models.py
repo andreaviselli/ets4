@@ -1,7 +1,13 @@
 import json
 from types import SimpleNamespace
 
-from ets4.models import FakeModelProvider, OpenAIModelProvider, get_model_provider
+from ets4.models import (
+    FakeModelProvider,
+    OpenAIModelProvider,
+    _handling_editor_system_prompt,
+    _triage_system_prompt,
+    get_model_provider,
+)
 
 
 def test_fake_provider_shortlists_economic_forecasting_paper() -> None:
@@ -292,6 +298,24 @@ def test_openai_provider_supports_chat_completions_structured_output_fallback() 
     assert result.decision == "borderline"
     assert provider.last_usage().input_tokens == 20
     assert client.chat.completions.calls[0]["response_format"]["type"] == "json_schema"
+
+
+def test_openai_prompt_uses_general_application_and_novelty_rubric() -> None:
+    prompt = _triage_system_prompt()
+
+    assert "useful applied forecasting application" in prompt
+    assert "methodological novelty" in prompt
+    assert "interesting empirical angle" in prompt
+    assert "GARCH" not in prompt
+    assert "VaR" not in prompt
+    assert "Dirichlet" not in prompt
+
+
+def test_handling_editor_prompt_sets_score_scale() -> None:
+    prompt = _handling_editor_system_prompt()
+
+    assert "Use 0-10 for deep_dive_score" in prompt
+    assert "0-1 for confidence" in prompt
 
 
 class _StubOpenAIClient:

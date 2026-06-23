@@ -11,6 +11,15 @@ It should prioritize papers that help readers forecast, nowcast, evaluate
 forecasts, monitor risk, stress-test scenarios, or make decisions in economic,
 financial, policy, energy, business, or market settings.
 
+The central selection criterion is concise: the paper should combine a useful
+applied forecasting application with either methodological novelty or a genuinely
+interesting empirical angle on an existing method. Purely theoretical work,
+pure methodology, non-forecasting work, doubtful-integrity work, narrow
+low-transferability applications, and uninteresting research questions should be
+discarded. A purely applied paper with little novelty or fresh angle may still
+be useful as an applied note, but it should not be treated as an optimal deep
+dive.
+
 This is intentionally narrower than a curiosity feed. A paper can be interesting
 and still be rejected for the main product. Academic novelty belongs in a
 secondary `methods_watch` lane unless the paper shows plausible applied value.
@@ -142,9 +151,11 @@ Gate rule:
 
 - Reject if forecasting signal is absent.
 - Reject if relevance is only causal, descriptive, or purely theoretical.
-- Reject or route to `methods_watch` if the work is mostly curiosity,
-  methodology, or social-media-friendly novelty without applied forecasting
-  value.
+- Reject if the work lacks a useful applied forecasting application.
+- Route to `methods_watch` or `borderline` if the work has novelty but weak or
+  unclear applied forecasting value.
+- Route to an applied note rather than a deep dive when the application is
+  useful but novelty or empirical angle is modest.
 - Send borderline cases to full review rather than forcing a confident label.
 
 ### Gate 2: Editorial Budget and Selection Policy

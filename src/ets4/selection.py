@@ -39,9 +39,22 @@ def select_full_review_candidates(
     run_id: str,
     config: AppConfig,
     update_paper_status: bool = True,
+    require_successful_document: bool = False,
 ) -> SelectionResult:
-    rows = conn.execute(
+    document_filter = (
         """
+          AND EXISTS (
+              SELECT 1
+              FROM documents
+              WHERE documents.paper_id = papers.id
+                AND documents.status = 'ok'
+          )
+        """
+        if require_successful_document
+        else ""
+    )
+    rows = conn.execute(
+        f"""
         SELECT
             papers.id,
             papers.title,
@@ -57,6 +70,7 @@ def select_full_review_candidates(
         LEFT JOIN sources ON sources.id = papers.source_id
         WHERE triage_reviews.run_id = ?
           AND triage_reviews.decision IN ('assign_reviewers', 'borderline')
+        {document_filter}
         """,
         (run_id,),
     ).fetchall()
