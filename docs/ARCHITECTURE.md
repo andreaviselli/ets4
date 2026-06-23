@@ -42,8 +42,8 @@ draft page, but it must never silently publish or flip a page out of draft mode.
    independent specialist reports, disagreement, editor decisions, and human
    adjudication states.
 5. **Budgeted editorial selection.** The human editor should set cost and paper
-   limits before expensive review steps, and should be able to override selected
-   papers before deep-dive draft generation.
+   limits before expensive review steps, then make the final publication
+   selection from the reviewed queue before export.
 6. **Provider abstraction.** LLM calls should sit behind a model interface so the
    project can compare OpenAI, local, and other hosted models without rewriting
    workflows.
@@ -62,17 +62,18 @@ draft page, but it must never silently publish or flip a page out of draft mode.
 4. Create a run manifest with issue date, model policy, cost budget, paper
    budget, override policy, and allowed actions.
 5. Run desk screening on title, abstract, source, and metadata.
-6. Rank candidates under the editorial budget and apply human overrides.
+6. Rank candidates under the editorial budget and apply coarse human overrides.
 7. Assign independent specialist reviewers for selected candidates.
 8. Fetch full text only for papers assigned to full review.
 9. Build an evidence dossier with source locators, claim candidates, figures,
    tables, datasets, metrics, baselines, and code links.
 10. Run independent specialist reviews against structured rubrics.
-11. Rank fully reviewed papers for short mentions and deep dives.
-12. Pause for optional human override before final deep-dive draft generation.
-13. Reconcile disagreement and produce a handling-editor decision memo.
-14. Generate public draft, claim ledger, and internal review notes.
-15. Export to a configured publishing repository with `draft: true`.
+11. Reconcile disagreement and produce a handling-editor decision memo.
+12. Rank fully reviewed papers for short mentions and deep dives.
+13. Write a human publication-selection review queue.
+14. Apply accepted human decisions and store deviation notes in the selection registry.
+15. Generate public draft, claim ledger, and internal review notes.
+16. Export to a configured publishing repository with `draft: true`.
 
 ## Core Components
 
@@ -86,7 +87,8 @@ lists in notebooks are obsolete.
 
 Use SQLite first. It is sufficient for a single-editor workflow, inspectable, and
 easy to back up. Store papers, source events, extracted documents, evidence
-items, review runs, reviewer outputs, decisions, exports, and evaluation labels.
+items, review runs, reviewer outputs, decisions, human selection reviews,
+exports, and evaluation labels.
 
 ### Document Processor
 
@@ -105,8 +107,18 @@ control, and deterministic replay where possible.
 
 The budget manager enforces the issue's cost and paper-count limits. It ranks
 papers for full review, short mention, and deep-dive draft generation, applies
-human include/exclude overrides, estimates expected cost before expensive steps,
-and stops the run when a hard budget would be exceeded.
+human include/exclude overrides, writes the final publication-selection review
+queue, estimates expected cost before expensive steps, and stops the run when a
+hard budget would be exceeded.
+
+### Human Selection Registry
+
+After panel review, ETS4 writes a machine-checkable JSON queue that lets the
+human editor keep, downgrade, promote, or cut reviewed papers before export.
+Applying the accepted file rewrites only publication-selection rows and stores
+deviation notes in SQLite. These notes are operational precedent; they are not
+accepted benchmark labels unless separately reviewed through the benchmark
+workflow.
 
 ### Evaluation Harness
 
@@ -116,8 +128,9 @@ reviewer versions before deployment. See `docs/EVALUATION.md`.
 ### Draft Exporter
 
 The exporter converts approved review records into Markdown plus a companion
-editorial-notes file. Export should be idempotent and should never overwrite
-manual edits unless explicitly requested.
+editorial-notes file. It should use human-applied publication selections when
+they exist. Export should be idempotent and should never overwrite manual edits
+unless explicitly requested.
 
 ### Automation Runner
 

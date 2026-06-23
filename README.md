@@ -77,6 +77,8 @@ ets4 select --run-id run-example123
 ets4 extract --run-id run-example123
 ets4 refresh-evidence --run-id run-example123
 ets4 review --run-id run-example123
+ets4 human-selection-template --run-id run-example123
+ets4 human-selection-apply --input exports/selection-reviews/run-example123.selection-review.json
 ets4 benchmark-template --run-id run-example123
 ets4 benchmark-status --labels path/to/benchmark.json
 ets4 evaluate --run-id run-example123 --labels path/to/benchmark.json --gate
@@ -128,6 +130,22 @@ for human override before export. For one paper:
 ```bash
 ets4 review --run-id run-example123 --paper-id paper-1
 ```
+
+`human-selection-template` writes an ignored JSON review queue under
+`exports/selection-reviews/` after panel review. The file is prefilled with the
+agent's publication recommendation for each reviewed paper. The human editor
+sets each `human_review.status` to `accepted`, keeps or edits the final
+selection stage, editorial decision, and publication track, and adds a short
+note whenever the human decision deviates from the agent.
+
+```bash
+ets4 human-selection-template --run-id run-example123
+ets4 human-selection-apply --input exports/selection-reviews/run-example123.selection-review.json
+```
+
+Applying the file rewrites only the `deep_dive_draft` and `short_mention`
+selection rows and stores the human decisions in SQLite as a historical
+selection registry. It does not create accepted benchmark labels.
 
 `benchmark-template` creates a human-labeling JSON template from a completed
 run. By default it writes to `exports/benchmarks/{run_id}.benchmark-template.json`,

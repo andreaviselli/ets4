@@ -87,9 +87,12 @@ Initial implementation status:
 - The fake provider supports deterministic role-specific reports and decision memos.
 - Reviewed papers are ranked into budgeted `deep_dive_draft` and
   `short_mention` selections.
+- Human publication-selection review exists as a JSON file workflow:
+  `human-selection-template` writes the reviewed queue, and
+  `human-selection-apply` records accepted human choices before export.
 - The current implementation covers relevance, methods, evidence, practitioner
   value, transferability, and handling editor roles.
-- Copy editing, claim ledgers, and human override UI remain later
+- Copy editing and a dedicated interactive human override UI remain later
   implementation work.
 
 - Implement the workflow in `docs/REVIEW_WORKFLOW.md`.
@@ -105,7 +108,7 @@ Exit criteria:
 - A paper cannot enter the public draft without passing required gates.
 - Borderline and rejected papers retain explanations.
 - Majority and minority reviewer views are visible in internal notes.
-- The human editor can override deep-dive selections before final draft generation.
+- The human editor can override publication selections before final draft export.
 - The editor receives useful correction targets, not just polished prose.
 
 ## Phase 5: Evaluation Harness
@@ -146,6 +149,8 @@ Initial implementation status:
 - Public Markdown includes site-style front matter with `draft: true`.
 - Internal notes include review metadata, panel summaries, open human-editor
   questions, reviewer reports, claim ledger, and extracted evidence.
+- Export uses the current `candidate_selections` rows, which can now be
+  rewritten by the accepted human publication-selection review before export.
 - Generated artifacts are recorded in SQLite.
 - Exports include an ETS4 checksum marker. Reruns overwrite unedited generated
   files but refuse to overwrite human-edited files unless `--force` is passed.

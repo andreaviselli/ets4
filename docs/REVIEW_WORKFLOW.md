@@ -214,7 +214,7 @@ Gate rule:
 - Human `force_include` and `force_exclude` controls override automated ranking,
   subject to source availability and hard safety constraints.
 - The human editor must be able to review and override selected full-review and
-  deep-dive candidates before final deep-dive draft generation.
+  publication candidates before final draft export.
 - A high score is not sufficient for a deep dive if evidence quality is weak,
   reviewer disagreement is unresolved, or the paper duplicates another selected
   item.
@@ -360,6 +360,38 @@ Outputs:
 The handling editor must decide whether reviewer disagreement is acceptable,
 whether caveats are strong enough, and whether the paper deserves scarce editorial
 space in the issue.
+
+### Gate 7.5: Human Publication Selection
+
+Question: which reviewed papers should actually enter the draft issue?
+
+Inputs:
+
+- agent triage score and category
+- handling-editor decision and publication track
+- automatic `deep_dive_draft` and `short_mention` selections
+- evidence count and review confidence
+- human editorial judgment
+
+Required output:
+
+- accepted human selection review file
+- final selection stage: deep-dive draft, short mention, or not selected
+- final editorial decision
+- final publication track
+- short human note when the final choice deviates from the agent recommendation
+- stored historical selection-registry record
+
+Gate rule:
+
+- Export should use the human-applied publication selections when a human
+  selection review exists for the run.
+- A human deviation from the agent must be accompanied by a concise note.
+- Human selection notes are operational precedent and must not be treated as
+  accepted benchmark labels unless separately reviewed through the benchmark
+  workflow.
+- Agent-visible casebook retrieval from this registry should wait until ETS4
+  has enough accepted benchmark data to keep private holdout evaluation separate.
 
 ### Gate 8: Draft QA
 

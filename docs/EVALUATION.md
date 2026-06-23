@@ -596,6 +596,11 @@ Benchmark labeling is a validation and regression-testing activity, not the
 normal production scoring workflow. In production ETS4 should continue to use
 agents or model providers to score, triage, review, and rank papers. The human
 editor should not need to label every paper as benchmark data for every issue.
+The normal production correction path is the human publication-selection review:
+the editor accepts, cuts, or reroutes reviewed papers before export and records
+a short note for deviations from the agent. Those notes are useful operational
+precedent, but they are not gold labels until the editor separately promotes
+the judgment into an accepted benchmark record.
 
 Human benchmark labels are still required when ETS4 needs an external quality
 reference: during pilot validation, after prompt or provider changes, after
@@ -611,12 +616,17 @@ Accepted labels may later support two distinct uses:
   measure ETS4 quality.
 - **Casebook examples:** labels that agents may retrieve as past editorial
   precedents when a new decision is uncertain.
+- **Selection registry records:** human publication decisions from ordinary
+  issue work, used for audit and potential future casebook curation after
+  holdout coverage exists.
 
-Keep these pools separate. A casebook can help agents handle borderline
-triage, `paper_of_interest` examples, hard negatives, and transferable-method
-papers more consistently, but it should not contaminate holdout metrics. If
-casebook retrieval is added, each run should record which labeled examples were
-shown to the agent.
+Keep these pools separate. Selection registry records may later be curated into
+casebook examples, but they should not automatically enter the evaluation
+holdout. A casebook can help agents handle borderline triage,
+`paper_of_interest` examples, hard negatives, and transferable-method papers
+more consistently, but it should not contaminate holdout metrics. If casebook
+retrieval is added, each run should record which labeled examples were shown to
+the agent.
 
 For the pilot, prefer a stable holdout benchmark so ETS4 changes can be compared
 against a fixed reference. A rolling holdout, where old evaluated labels are

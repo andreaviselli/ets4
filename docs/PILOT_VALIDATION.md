@@ -28,6 +28,7 @@ In scope:
 
 - real source collection from configured feeds
 - human inspection of collected papers and selected papers
+- human publication-selection review before export
 - benchmark label creation
 - evaluation of fake-provider outputs
 - later evaluation of a real model provider against the same benchmark
@@ -59,12 +60,23 @@ For each pilot issue, inspect:
 - `evidence_items` for coverage and source-locator quality
 - `reviewer_reports` for role-specific usefulness
 - `editorial_decisions` for overconfidence or hidden disagreement
+- `human_selection_reviews` for human publication-selection deviations
 - exported `issue.md` and `internal-notes.md`
 - archive zip contents
 
 The human editor should record notes about false positives, false negatives,
 weak evidence, missing evidence, misleading draft claims, and useful reviewer
-questions.
+questions. For reviewed papers that should be promoted, downgraded, or cut
+before export, use the human selection review queue:
+
+```bash
+ets4 human-selection-template --run-id run-example123
+ets4 human-selection-apply --input exports/selection-reviews/run-example123.selection-review.json
+```
+
+The human selection review is an operational publication decision. It should
+not be treated as accepted benchmark data unless the same judgment is separately
+entered and accepted in a benchmark label file.
 
 The initial pilot may use the starter source registry in
 `config/feeds.example.toml`, which currently contains NEP Forecasting, arXiv

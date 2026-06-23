@@ -23,6 +23,10 @@ from .evaluate import (
 )
 from .export import export_run
 from .export.writer import ExportWriteError
+from .human_selection import (
+    apply_human_selection_review,
+    create_human_selection_review_template,
+)
 from .manifest import create_manifest
 from .models import get_model_provider
 from .ops.archive import create_archive_bundle
@@ -117,6 +121,31 @@ def build_parser() -> argparse.ArgumentParser:
         help="Review one paper instead of all selected papers.",
     )
     review_parser.set_defaults(func=cmd_review)
+
+    human_selection_template_parser = subparsers.add_parser(
+        "human-selection-template",
+        help="Create a human publication-selection review JSON file from reviewed papers.",
+    )
+    human_selection_template_parser.add_argument("--run-id", required=True)
+    human_selection_template_parser.add_argument(
+        "--output",
+        help=(
+            "Path to write the review JSON. Defaults to "
+            "exports/selection-reviews/<run-id>.selection-review.json."
+        ),
+    )
+    human_selection_template_parser.set_defaults(func=cmd_human_selection_template)
+
+    human_selection_apply_parser = subparsers.add_parser(
+        "human-selection-apply",
+        help="Apply a human publication-selection review JSON file to candidate selections.",
+    )
+    human_selection_apply_parser.add_argument("--input", required=True)
+    human_selection_apply_parser.add_argument(
+        "--run-id",
+        help="Optional run id guard. Must match the file's source_run_id when provided.",
+    )
+    human_selection_apply_parser.set_defaults(func=cmd_human_selection_apply)
 
     evaluate_parser = subparsers.add_parser(
         "evaluate",
@@ -596,6 +625,71 @@ def cmd_review(args: argparse.Namespace) -> int:
     print(f"Selected for short mention: {publication_selection.short_mention_selected_count}")
     print(f"Review errors: {errors}")
     return 1 if errors else 0
+
+
+def cmd_human_selection_template(args: argparse.Namespace) -> int:
+    output = args.output or f"exports/selection-reviews/{args.run_id}.selection-review.json"
+    with connect(args.db) as conn:
+        init_db(conn)
+        if not run_exists(conn, args.run_id):
+            raise SystemExit(f"Run manifest not found: {args.run_id}")
+        try:
+            result = create_human_selection_review_template(
+                conn,
+                run_id=args.run_id,
+                output_path=output,
+            )
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+        insert_run_event(
+            conn,
+            run_id=args.run_id,
+            stage="human_selection_template",
+            status="ok",
+            message=f"Created human selection review for {result.paper_count} papers",
+            metadata={"path": str(result.path)},
+        )
+        conn.commit()
+    print(f"Run manifest: {result.run_id}")
+    print(f"Human selection review: {result.path}")
+    print(f"Reviewed papers: {result.paper_count}")
+    print(f"Pending human decisions: {result.pending_count}")
+    return 0
+
+
+def cmd_human_selection_apply(args: argparse.Namespace) -> int:
+    with connect(args.db) as conn:
+        init_db(conn)
+        if args.run_id and not run_exists(conn, args.run_id):
+            raise SystemExit(f"Run manifest not found: {args.run_id}")
+        try:
+            result = apply_human_selection_review(
+                conn,
+                input_path=args.input,
+                run_id=args.run_id,
+            )
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            raise SystemExit(f"Could not apply human selection review: {exc}") from exc
+        insert_run_event(
+            conn,
+            run_id=result.run_id,
+            stage="human_selection_apply",
+            status="ok",
+            message=(
+                "Applied human selection review: "
+                f"{result.deep_dive_selected_count} deep dives, "
+                f"{result.short_mention_selected_count} short mentions"
+            ),
+            metadata={"path": str(result.path), "deviations": result.deviation_count},
+        )
+        conn.commit()
+    print(f"Run manifest: {result.run_id}")
+    print(f"Human selection review: {result.path}")
+    print(f"Reviewed papers applied: {result.reviewed_count}")
+    print(f"Human deviations recorded: {result.deviation_count}")
+    print(f"Selected for deep-dive draft: {result.deep_dive_selected_count}")
+    print(f"Selected for short mention: {result.short_mention_selected_count}")
+    return 0
 
 
 def cmd_evaluate(args: argparse.Namespace) -> int:

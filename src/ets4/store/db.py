@@ -7,7 +7,7 @@ from typing import Any
 
 from ets4.identity import canonicalize_url, normalize_title, title_similarity
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 
 def connect(path: str | Path) -> sqlite3.Connection:
@@ -297,6 +297,26 @@ def init_db(conn: sqlite3.Connection) -> None:
             message TEXT,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(run_id, path)
+        );
+
+        CREATE TABLE IF NOT EXISTS human_selection_reviews (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id TEXT NOT NULL REFERENCES run_manifests(run_id),
+            paper_id TEXT NOT NULL REFERENCES papers(id),
+            review_file_path TEXT NOT NULL,
+            review_status TEXT NOT NULL,
+            agent_selection_stage TEXT NOT NULL,
+            agent_editorial_decision TEXT,
+            agent_publication_track TEXT,
+            agent_payload_json TEXT NOT NULL,
+            human_selection_stage TEXT NOT NULL,
+            human_editorial_decision TEXT NOT NULL,
+            human_publication_track TEXT NOT NULL,
+            human_notes TEXT NOT NULL,
+            deviation INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(run_id, paper_id)
         );
         """
     )
@@ -903,4 +923,61 @@ def upsert_archive_artifact(
             created_at = CURRENT_TIMESTAMP
         """,
         (run_id, path, content_sha256, status, message),
+    )
+
+
+def upsert_human_selection_review(
+    conn: sqlite3.Connection,
+    *,
+    run_id: str,
+    paper_id: str,
+    review_file_path: str,
+    review_status: str,
+    agent_selection_stage: str,
+    agent_editorial_decision: str | None,
+    agent_publication_track: str | None,
+    agent_payload: dict[str, Any],
+    human_selection_stage: str,
+    human_editorial_decision: str,
+    human_publication_track: str,
+    human_notes: str,
+    deviation: bool,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO human_selection_reviews (
+            run_id, paper_id, review_file_path, review_status,
+            agent_selection_stage, agent_editorial_decision, agent_publication_track,
+            agent_payload_json, human_selection_stage, human_editorial_decision,
+            human_publication_track, human_notes, deviation
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(run_id, paper_id) DO UPDATE SET
+            review_file_path = excluded.review_file_path,
+            review_status = excluded.review_status,
+            agent_selection_stage = excluded.agent_selection_stage,
+            agent_editorial_decision = excluded.agent_editorial_decision,
+            agent_publication_track = excluded.agent_publication_track,
+            agent_payload_json = excluded.agent_payload_json,
+            human_selection_stage = excluded.human_selection_stage,
+            human_editorial_decision = excluded.human_editorial_decision,
+            human_publication_track = excluded.human_publication_track,
+            human_notes = excluded.human_notes,
+            deviation = excluded.deviation,
+            updated_at = CURRENT_TIMESTAMP
+        """,
+        (
+            run_id,
+            paper_id,
+            review_file_path,
+            review_status,
+            agent_selection_stage,
+            agent_editorial_decision,
+            agent_publication_track,
+            json.dumps(agent_payload, sort_keys=True),
+            human_selection_stage,
+            human_editorial_decision,
+            human_publication_track,
+            human_notes,
+            1 if deviation else 0,
+        ),
     )

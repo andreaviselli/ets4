@@ -44,6 +44,10 @@ expansion, or website integration.
   interesting empirical angle. They intentionally avoid paper-specific or
   method-name tuning.
 - Exports write draft Markdown and internal notes under ignored `exports/`.
+- `ets4 human-selection-template` writes an ignored JSON publication-selection
+  review queue after panel review, and `ets4 human-selection-apply` stores the
+  accepted human choices in SQLite while rewriting only the `deep_dive_draft`
+  and `short_mention` selection rows.
 - Archive bundles and run events are implemented for reproducibility.
 - `ets4 benchmark-template` creates human-editable benchmark JSON from a
   completed run.
@@ -257,7 +261,8 @@ ets4 run-scheduled --issue-date YYYY-MM-DD
   benchmark fixture has been curated from it.
 - No website-repository integration exists yet.
 - Human override workflow exists conceptually and through config controls, but
-  there is no dedicated interactive UI.
+  there is no dedicated interactive UI. Publication-selection review now exists
+  as a JSON file workflow rather than an app-like editor.
 - Draft quality and publication-readiness evaluation need real human labels.
 - Blocked repository retrieval may need source-specific fallback policy.
 

@@ -4,6 +4,39 @@ This file records durable architectural and editorial decisions. It is not a
 changelog. Add entries when a future agent or human editor would need the
 rationale, consequences, or reversal conditions.
 
+## 2026-06-23: Add Human Publication-Selection Review Before Export
+
+Decision: Add a JSON-based human publication-selection review workflow after
+panel review and before draft export. The review file is prefilled with the
+agent recommendation, but the human editor must accept each reviewed paper and
+add a note whenever the final selection, editorial decision, or publication
+track deviates from the agent.
+
+Context: A replay against the first accepted subset showed persistent
+overselection and publication-track overpromotion. The desired operating model
+is not to replace automated scoring, but to make the agent return an editable
+selection queue that the human editor sharpens before export. Human deviation
+notes should accumulate as historical editorial precedent without being
+mistaken for accepted evaluation labels.
+
+Alternatives considered:
+
+- Keep only static `force_include` and `force_exclude` config controls.
+- Treat human edits as accepted benchmark labels.
+- Add a dedicated UI before the file workflow exists.
+- Add a machine-checkable JSON review file and SQLite registry first.
+
+Consequence: `ets4 human-selection-template` creates ignored review JSON under
+`exports/selection-reviews/`, and `ets4 human-selection-apply` rewrites only
+the publication selection rows while storing human decisions in
+`human_selection_reviews`. The registry is not yet exposed to providers as a
+casebook, preserving the current holdout/casebook separation.
+
+Reversal condition: Replace or extend the JSON file workflow with an
+interactive editor if monthly use shows that file editing is too error-prone.
+Agent-visible precedent lookup should still wait until benchmark coverage is
+large enough to avoid contaminating holdout evaluation.
+
 ## 2026-06-23: Use Application Plus Novelty as the Core Selection Rubric
 
 Decision: ETS4 should classify papers using a concise general rubric: selected
