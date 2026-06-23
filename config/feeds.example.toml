@@ -14,6 +14,12 @@ provider = "fake"
 triage_model = "fake-triage-v1"
 review_model = "fake-review-v1"
 prompt_version = "dev"
+# For local evaluation-only real-provider experiments, copy this file to the
+# ignored config/feeds.toml and set:
+# provider = "openai"
+# triage_model = "gpt-5.5"
+# review_model = "gpt-5.5"
+# Keep the fake provider as the committed default until the provider gate passes.
 
 [[sources]]
 id = "nep-for"

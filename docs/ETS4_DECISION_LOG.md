@@ -4,6 +4,37 @@ This file records durable architectural and editorial decisions. It is not a
 changelog. Add entries when a future agent or human editor would need the
 rationale, consequences, or reversal conditions.
 
+## 2026-06-23: Add OpenAI Provider for Evaluation, Not Adoption
+
+Decision: Implement an OpenAI provider behind the existing ETS4 model-provider
+interface for evaluation-only replay and comparison, while keeping the
+deterministic fake provider as the committed default.
+
+Context: The provider gate is still failing because the benchmark is small,
+accepted-label warnings remain, and editorial accuracy is below threshold.
+However, the human editor explicitly directed ETS4 to proceed with real
+LLM-provider implementation because LLM agents are the intended scoring path in
+real use. This is an implementation step, not production adoption.
+
+Alternatives considered:
+
+- Block all real-provider code until the benchmark reaches the full gate.
+- Add OpenAI as the default provider immediately.
+- Add OpenAI behind the existing interface, require local ignored configuration
+  for use, and continue treating gate failures as blockers for adoption.
+
+Consequence: ETS4 can now run measured OpenAI-provider experiments against the
+accepted subset and future benchmarks. Provider outputs remain structured and
+stored through the existing triage/review records, with API token usage recorded
+when returned. Scheduled or publication-facing runs should still use the fake
+baseline unless the provider gate passes or a later decision-log entry records
+another explicit override.
+
+Reversal condition: Disable or remove the OpenAI provider if evaluation shows
+unacceptable unsupported-claim risk, invalid citation behavior, poor
+hard-negative precision, excessive cost, or outputs that are harder for the
+human editor to audit than the fake baseline.
+
 ## 2026-06-23: Remove Narrow Fake-Provider Subset Tuning
 
 Decision: Remove narrow fake-provider finance rejection terms that were derived

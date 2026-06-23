@@ -1,6 +1,6 @@
 # ETS4 State
 
-Last updated: 2026-06-22
+Last updated: 2026-06-23
 
 This file is the fast handoff note for future ETS4 work. Read it after the
 README and before making implementation changes.
@@ -34,6 +34,11 @@ expansion, or website integration.
   review, and handling-editor decisions. It now distinguishes applied economic
   forecasting signals from generic financial/time-series methods and caps
   full-deep-dive decisions when applied forecasting fit is limited.
+- An OpenAI model provider exists behind the same provider interface for
+  evaluation-only experiments. It uses structured JSON outputs for triage,
+  independent reviewer reports, and handling-editor decisions, and records
+  provider token usage in SQLite when returned by the API. The committed default
+  remains `fake`.
 - Exports write draft Markdown and internal notes under ignored `exports/`.
 - Archive bundles and run events are implemented for reproducibility.
 - `ets4 benchmark-template` creates human-editable benchmark JSON from a
@@ -149,11 +154,18 @@ adoption or website integration.
 
 ## Next Recommended Task
 
-Resolve the accepted-label warning cases and expand the benchmark before adding
-a real provider. The provider gate now makes this explicit.
+Run an evaluation-only OpenAI-provider replay against the existing accepted
+subset, then inspect the error report and provider-gate output. This is allowed
+by explicit human direction recorded in the decision log, but provider adoption
+and production use remain blocked by the gate.
 
 Suggested scope:
 
+- copy `config/feeds.example.toml` to ignored `config/feeds.toml`, set
+  `[model_policy].provider = "openai"`, configure OpenAI model names, and set
+  `OPENAI_API_KEY` locally
+- run the replay command below using the OpenAI provider and compare against the
+  latest fake replay
 - resolve accepted-label warnings where editorial decision, publication track,
   category, or selection fields point in different directions
 - use `ets4 benchmark-status --json --labels ...` to inspect the exact warning
@@ -164,8 +176,9 @@ Suggested scope:
   citation validity on the accepted subset
 - keep accepted human labels as ignored local artifacts unless a curated test
   fixture is intentionally created
-- do not add a real model provider until evidence coverage and editorial
-  accuracy improve on accepted labels
+- do not adopt the real provider for scheduled or publication-facing runs until
+  evidence coverage, editorial accuracy, label warnings, and benchmark coverage
+  satisfy the provider gate or another explicit decision-log override exists
 
 Suggested command pattern:
 
@@ -200,7 +213,8 @@ ets4 run-scheduled --issue-date YYYY-MM-DD
 
 ## Known Gaps
 
-- No real model provider is implemented yet.
+- The OpenAI provider is implemented but has not yet been evaluated locally
+  against the accepted subset in this repository state.
 - A small accepted human benchmark subset exists locally, but no source-controlled
   benchmark fixture has been curated from it.
 - No website-repository integration exists yet.

@@ -9,7 +9,7 @@ from ets4.config import AppConfig
 from ets4.manifest import create_manifest
 from ets4.models import ModelProvider
 from ets4.ops.retry import retry_call
-from ets4.ops.usage import record_fake_usage
+from ets4.ops.usage import record_model_usage
 from ets4.review.workflow import run_panel_review_for_paper, selected_review_targets
 from ets4.selection import select_full_review_candidates, select_publication_candidates
 from ets4.store.db import insert_manifest, insert_run_event, run_exists
@@ -144,7 +144,7 @@ def _replay_triage(
         result = retry_call(
             lambda row=row: provider.triage(row["title"], row["abstract"], row["source_name"])
         )
-        record_fake_usage(
+        record_model_usage(
             conn,
             run_id=replay_run_id,
             stage="triage",
@@ -153,6 +153,7 @@ def _replay_triage(
             input_text=input_text,
             output_text=json.dumps(result.__dict__, sort_keys=True),
             metadata={"paper_id": row["id"], "source_run_id": source_run_id},
+            usage=provider.last_usage(),
         )
         conn.execute(
             """

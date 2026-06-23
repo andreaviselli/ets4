@@ -95,6 +95,14 @@ or remove source entries in `config/feeds.toml` to change pilot coverage.
 The default model provider is `fake`, which is deterministic and suitable for
 offline development and tests.
 
+For evaluation-only real-provider experiments, copy `config/feeds.example.toml`
+to ignored `config/feeds.toml`, set `[model_policy].provider = "openai"`, set
+OpenAI model names, and provide `OPENAI_API_KEY` through the local environment
+or ignored `.env` file. The OpenAI provider uses structured JSON outputs behind
+the same triage/review interface as the fake provider. It is not the default,
+and provider adoption remains blocked until the pilot validation gate passes or
+the decision log records an explicit override.
+
 `triage` automatically applies the full-review paper budget after scoring
 candidates. `select` can be run separately to recompute full-review selection
 after configuration or human override changes.

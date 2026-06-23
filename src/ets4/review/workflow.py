@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from ets4.models import ModelProvider
 from ets4.ops.retry import RetryConfig, retry_call
-from ets4.ops.usage import record_fake_usage
+from ets4.ops.usage import record_model_usage
 from ets4.store.db import (
     insert_review_event,
     upsert_editorial_decision,
@@ -77,7 +77,7 @@ def run_panel_review_for_paper(
             )
             payload = result.to_dict()
             validate_reviewer_report(payload)
-            record_fake_usage(
+            record_model_usage(
                 conn,
                 run_id=run_id,
                 stage=f"review:{role}",
@@ -86,6 +86,7 @@ def run_panel_review_for_paper(
                 input_text=str(dossier.payload),
                 output_text=str(payload),
                 metadata={"paper_id": paper_id, "dossier_id": dossier.id},
+                usage=provider.last_usage(),
             )
             report_id = _stable_id("report", run_id, paper_id, role)
             upsert_reviewer_report(
@@ -111,7 +112,7 @@ def run_panel_review_for_paper(
         )
         decision_payload = decision.to_dict()
         validate_editorial_decision(decision_payload)
-        record_fake_usage(
+        record_model_usage(
             conn,
             run_id=run_id,
             stage="review:handling_editor",
@@ -120,6 +121,7 @@ def run_panel_review_for_paper(
             input_text=str({"dossier": dossier.payload, "reports": reports}),
             output_text=str(decision_payload),
             metadata={"paper_id": paper_id, "dossier_id": dossier.id},
+            usage=provider.last_usage(),
         )
         decision_id = _stable_id("decision", run_id, paper_id)
         upsert_editorial_decision(

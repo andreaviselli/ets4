@@ -28,7 +28,7 @@ from .models import get_model_provider
 from .ops.archive import create_archive_bundle
 from .ops.replay import replay_baseline_run
 from .ops.retry import retry_call
-from .ops.usage import record_fake_usage
+from .ops.usage import record_model_usage
 from .review.workflow import run_panel_review_for_paper, selected_review_targets
 from .selection import select_full_review_candidates, select_publication_candidates
 from .store.db import (
@@ -380,7 +380,7 @@ def cmd_collect(args: argparse.Namespace) -> int:
 
 def cmd_triage(args: argparse.Namespace) -> int:
     config = load_config(args.config)
-    provider = get_model_provider(config.model_policy.provider)
+    provider = _configured_provider(config)
     reviewed = 0
     with connect(args.db) as conn:
         init_db(conn)
@@ -412,7 +412,7 @@ def cmd_triage(args: argparse.Namespace) -> int:
             result = retry_call(
                 lambda row=row: provider.triage(row["title"], row["abstract"], row["source_name"])
             )
-            record_fake_usage(
+            record_model_usage(
                 conn,
                 run_id=run_id,
                 stage="triage",
@@ -421,6 +421,7 @@ def cmd_triage(args: argparse.Namespace) -> int:
                 input_text=input_text,
                 output_text=json.dumps(result.__dict__, sort_keys=True),
                 metadata={"paper_id": row["id"]},
+                usage=provider.last_usage(),
             )
             conn.execute(
                 """
@@ -546,7 +547,7 @@ def cmd_refresh_evidence(args: argparse.Namespace) -> int:
 
 def cmd_review(args: argparse.Namespace) -> int:
     config = load_config(args.config)
-    provider = get_model_provider(config.model_policy.provider)
+    provider = _configured_provider(config)
     reviewed = 0
     errors = 0
     with connect(args.db) as conn:
@@ -623,7 +624,7 @@ def cmd_replay_baseline(args: argparse.Namespace) -> int:
     if args.gate and not args.labels:
         raise SystemExit("replay-baseline --gate requires --labels")
     config = load_config(args.config)
-    provider = get_model_provider(config.model_policy.provider)
+    provider = _configured_provider(config)
     issue_date = date.fromisoformat(args.issue_date) if args.issue_date else None
     with connect(args.db) as conn:
         init_db(conn)
@@ -808,7 +809,7 @@ def cmd_archive(args: argparse.Namespace) -> int:
 
 def cmd_run_scheduled(args: argparse.Namespace) -> int:
     config = load_config(args.config)
-    provider = get_model_provider(config.model_policy.provider)
+    provider = _configured_provider(config)
     with connect(args.db) as conn:
         init_db(conn)
         run_id = _scheduled_run_id(conn, config, args)
@@ -874,6 +875,15 @@ def cmd_run_scheduled(args: argparse.Namespace) -> int:
     print(f"Export directory: {export_result.output_dir}")
     print(f"Archive: {archive_result.path}")
     return 1 if status == "error" else 0
+
+
+def _configured_provider(config):
+    return get_model_provider(
+        config.model_policy.provider,
+        triage_model=config.model_policy.triage_model,
+        review_model=config.model_policy.review_model,
+        prompt_version=config.model_policy.prompt_version,
+    )
 
 
 def _ensure_run_manifest(conn, config, args) -> str:
@@ -992,7 +1002,7 @@ def _scheduled_triage(conn, *, config, run_id: str, provider) -> int:
         result = retry_call(
             lambda row=row: provider.triage(row["title"], row["abstract"], row["source_name"])
         )
-        record_fake_usage(
+        record_model_usage(
             conn,
             run_id=run_id,
             stage="triage",
@@ -1001,6 +1011,7 @@ def _scheduled_triage(conn, *, config, run_id: str, provider) -> int:
             input_text=f"{row['title']}\n{row['abstract']}\n{row['source_name']}",
             output_text=json.dumps(result.__dict__, sort_keys=True),
             metadata={"paper_id": row["id"]},
+            usage=provider.last_usage(),
         )
         conn.execute(
             """

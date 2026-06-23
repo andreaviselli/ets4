@@ -216,8 +216,11 @@ to audit.
 
 ## Real Model Provider Gate
 
-A real provider, such as an OpenAI provider, should be added only after the
-first human benchmark exists.
+A real provider, such as an OpenAI provider, should be implemented only after
+the first human benchmark exists. Implementation is allowed for measured
+evaluation runs; adoption for scheduled or publication-facing use remains
+blocked until the provider gate passes or an explicit decision-log override is
+recorded.
 
 The provider should sit behind the existing model-provider interface and must
 write:
