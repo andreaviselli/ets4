@@ -271,6 +271,29 @@ def test_openai_provider_parses_reviewer_and_editor_outputs() -> None:
     assert len(client.responses.calls) == 2
 
 
+def test_openai_provider_supports_chat_completions_structured_output_fallback() -> None:
+    client = _StubOpenAIChatClient(
+        [
+            {
+                "decision": "borderline",
+                "category_hint": "paper_of_interest",
+                "forecasting_signal": "explicit",
+                "economic_signal": "implied",
+                "score": 5.5,
+                "confidence": 0.61,
+                "reason": "Forecasting signal is present but economic fit is indirect.",
+            }
+        ]
+    )
+    provider = OpenAIModelProvider(client=client)
+
+    result = provider.triage("Demand forecasts", "We forecast electricity demand.", "test")
+
+    assert result.decision == "borderline"
+    assert provider.last_usage().input_tokens == 20
+    assert client.chat.completions.calls[0]["response_format"]["type"] == "json_schema"
+
+
 class _StubOpenAIClient:
     def __init__(self, payloads: list[dict]) -> None:
         self.responses = _StubResponses(payloads)
@@ -287,4 +310,27 @@ class _StubResponses:
         return SimpleNamespace(
             output_text=json.dumps(payload),
             usage=SimpleNamespace(input_tokens=123, output_tokens=45, total_tokens=168),
+        )
+
+
+class _StubOpenAIChatClient:
+    def __init__(self, payloads: list[dict]) -> None:
+        self.chat = SimpleNamespace(completions=_StubChatCompletions(payloads))
+
+
+class _StubChatCompletions:
+    def __init__(self, payloads: list[dict]) -> None:
+        self._payloads = list(payloads)
+        self.calls: list[dict] = []
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        payload = self._payloads.pop(0)
+        return SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(content=json.dumps(payload)),
+                )
+            ],
+            usage=SimpleNamespace(prompt_tokens=20, completion_tokens=10, total_tokens=30),
         )

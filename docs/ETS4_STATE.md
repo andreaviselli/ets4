@@ -139,6 +139,31 @@ under the practitioner/applied forecasting rubric.
 - provider gate failed checks: 4
 - provider gate blockers: benchmark warnings, 6/100 labeled papers, 3/20
   full-review examples, editorial decision accuracy 0.6667/0.8
+- latest OpenAI provider replay run: `run-6d84b35b31a8`
+- latest OpenAI provider evaluation run: `eval-8eb803b982b09260`
+- OpenAI replay model config: `gpt-5.4-mini` for triage and review
+- OpenAI replay API usage: 75 calls, about 630k input tokens and 32k output
+  tokens; cost is not yet computed by ETS4, but this is roughly $0.62 at
+  current standard `gpt-5.4-mini` API pricing
+- OpenAI replay triaged papers: 21
+- OpenAI replay selected for full review: 19
+- OpenAI replay reviewed papers with decisions: 9
+- OpenAI replay unique missing-document review failures: 10
+- OpenAI replay triage decision accuracy: 0.5
+- OpenAI replay selected-paper precision: 0.8
+- OpenAI replay relevant-paper recall: 1.0
+- OpenAI replay required evidence-kind coverage: 1.0
+- OpenAI replay reviewer citation coverage: 1.0
+- OpenAI replay invalid citation rate: 0.0
+- OpenAI replay editorial decision accuracy: 0.3333
+- OpenAI replay deep-dive selection accuracy: 0.5
+- OpenAI replay publication-track accuracy: 0.1667
+- OpenAI replay per-paper mismatches: 19
+- OpenAI provider gate status: not ready
+- OpenAI provider gate failed checks: 5
+- OpenAI provider gate blockers: benchmark warnings, 6/100 labeled papers,
+  3/20 full-review examples, editorial decision accuracy 0.3333/0.8,
+  publication-track accuracy 0.1667/0.8
 
 Interpretation: the fake-provider baseline preserves citation validity on the
 accepted subset. After auditing overfitting risk, the fake provider no longer
@@ -149,23 +174,32 @@ triage/editorial accuracy on the tiny accepted subset. That is the preferred
 tradeoff: the fake provider should remain a stable conservative pipeline
 baseline, not a rule set optimized for a handful of labels. Evidence-kind
 coverage is now complete on the accepted subset after refreshing stored pages.
-The current result is still too small and label-warning-bound for real-provider
-adoption or website integration.
+The first OpenAI replay confirms that the real-provider interface works and
+that structured outputs can be evaluated, but it is not yet calibrated for the
+practitioner/applied product. The OpenAI provider overpromoted finance and
+methods papers, selected many papers without usable stored documents for full
+review, and routed too many papers into deep-dive publication tracks. The
+current result is still too small, label-warning-bound, and provider-accuracy
+limited for real-provider adoption or website integration.
 
 ## Next Recommended Task
 
-Run an evaluation-only OpenAI-provider replay against the existing accepted
-subset, then inspect the error report and provider-gate output. This is allowed
-by explicit human direction recorded in the decision log, but provider adoption
-and production use remain blocked by the gate.
+Calibrate the OpenAI-provider path before any further provider adoption
+decision. The first OpenAI replay works technically but fails the provider gate
+and overselects weakly applied finance/method papers.
 
 Suggested scope:
 
-- copy `config/feeds.example.toml` to ignored `config/feeds.toml`, set
-  `[model_policy].provider = "openai"`, configure OpenAI model names, and set
-  `OPENAI_API_KEY` locally
-- run the replay command below using the OpenAI provider and compare against the
-  latest fake replay
+- tighten OpenAI triage prompts or post-triage gates so generic
+  financial/method papers become `borderline`, `methods_watch`, or `reject`
+  rather than `assign_reviewers`/`deep_dive`
+- prevent full-review selection from spending review calls on papers without
+  successful stored documents when running replay/evaluation, or explicitly
+  count those as retrieval failures before provider comparison
+- normalize provider scoring instructions so `deep_dive_score` uses ETS4's
+  documented 0-10 scale rather than a 0-1 confidence-like scale
+- rerun the OpenAI replay after calibration and compare against
+  `run-d89f0363fdd3` and `run-6d84b35b31a8`
 - resolve accepted-label warnings where editorial decision, publication track,
   category, or selection fields point in different directions
 - use `ets4 benchmark-status --json --labels ...` to inspect the exact warning
@@ -213,8 +247,8 @@ ets4 run-scheduled --issue-date YYYY-MM-DD
 
 ## Known Gaps
 
-- The OpenAI provider is implemented but has not yet been evaluated locally
-  against the accepted subset in this repository state.
+- The OpenAI provider has been evaluated locally against the accepted subset,
+  but it is not calibrated enough for adoption.
 - A small accepted human benchmark subset exists locally, but no source-controlled
   benchmark fixture has been curated from it.
 - No website-repository integration exists yet.

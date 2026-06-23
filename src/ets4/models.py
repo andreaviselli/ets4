@@ -525,21 +525,38 @@ class OpenAIModelProvider:
         user_payload: dict[str, Any],
     ) -> dict[str, Any]:
         client = self._openai_client()
-        response = client.responses.create(
-            model=model,
-            input=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": json.dumps(user_payload, sort_keys=True)},
-            ],
-            text={
-                "format": {
+        if hasattr(client, "responses"):
+            response = client.responses.create(
+                model=model,
+                input=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": json.dumps(user_payload, sort_keys=True)},
+                ],
+                text={
+                    "format": {
+                        "type": "json_schema",
+                        "name": schema_name,
+                        "schema": schema,
+                        "strict": True,
+                    }
+                },
+            )
+        else:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": json.dumps(user_payload, sort_keys=True)},
+                ],
+                response_format={
                     "type": "json_schema",
-                    "name": schema_name,
-                    "schema": schema,
-                    "strict": True,
-                }
-            },
-        )
+                    "json_schema": {
+                        "name": schema_name,
+                        "schema": schema,
+                        "strict": True,
+                    },
+                },
+            )
         self._last_usage = _usage_from_response(response)
         output_text = _response_output_text(response)
         try:
@@ -686,6 +703,12 @@ def _response_output_text(response: Any) -> str:
     output_text = getattr(response, "output_text", None)
     if output_text:
         return str(output_text)
+    choices = getattr(response, "choices", None) or []
+    for choice in choices:
+        message = getattr(choice, "message", None)
+        content = getattr(message, "content", None)
+        if content:
+            return str(content)
     output = getattr(response, "output", None) or []
     for item in output:
         for content in getattr(item, "content", []) or []:
@@ -699,8 +722,12 @@ def _usage_from_response(response: Any) -> ModelCallUsage | None:
     usage = getattr(response, "usage", None)
     if usage is None:
         return None
-    input_tokens = _optional_int(getattr(usage, "input_tokens", None))
-    output_tokens = _optional_int(getattr(usage, "output_tokens", None))
+    input_tokens = _optional_int(
+        getattr(usage, "input_tokens", None) or getattr(usage, "prompt_tokens", None)
+    )
+    output_tokens = _optional_int(
+        getattr(usage, "output_tokens", None) or getattr(usage, "completion_tokens", None)
+    )
     total_tokens = _optional_int(getattr(usage, "total_tokens", None))
     metadata = {
         "estimated_cost_status": "not_configured",
