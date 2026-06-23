@@ -137,29 +137,25 @@ under the practitioner/applied forecasting rubric.
 
 Interpretation: the fake-provider baseline preserves citation validity on the
 accepted subset. After auditing overfitting risk, the fake provider no longer
-uses narrow VaR/trading or long-range-dependence finance rejection terms derived
-from the six-paper subset. The less-tailored replay keeps evidence coverage,
-citation validity, hard-negative precision, and relevant recall strong, but it
-regresses triage/editorial accuracy on the tiny accepted subset. That is the
-preferred tradeoff: the fake provider should remain a stable conservative
-pipeline baseline, not a rule set optimized for six labels. Evidence-kind
+uses narrow rejection terms derived from individual accepted-subset papers. The
+less-tailored replay keeps evidence coverage, citation validity,
+hard-negative precision, and relevant recall strong, but it regresses
+triage/editorial accuracy on the tiny accepted subset. That is the preferred
+tradeoff: the fake provider should remain a stable conservative pipeline
+baseline, not a rule set optimized for a handful of labels. Evidence-kind
 coverage is now complete on the accepted subset after refreshing stored pages.
 The current result is still too small and label-warning-bound for real-provider
 adoption or website integration.
 
 ## Next Recommended Task
 
-Resolve the two benchmark-status warning cases and expand the benchmark before
-adding a real provider. The provider gate now makes this explicit.
+Resolve the accepted-label warning cases and expand the benchmark before adding
+a real provider. The provider gate now makes this explicit.
 
 Suggested scope:
 
-- decide whether the Directional-Shift Dirichlet ARMA label should be a
-  `deep_dive`, an `applied_note`, or a short mention, then update the ignored
-  accepted local labels accordingly
-- decide whether the VaR/equity-market label should keep a positive category
-  despite triage rejection, or whether `expected_category` should match the
-  rejected practitioner/applied-product scope
+- resolve accepted-label warnings where editorial decision, publication track,
+  category, or selection fields point in different directions
 - use `ets4 benchmark-status --json --labels ...` to inspect the exact warning
   records and coverage gaps before changing ignored local labels
 - expand the accepted benchmark by at least 94 triage labels and 17 full-review

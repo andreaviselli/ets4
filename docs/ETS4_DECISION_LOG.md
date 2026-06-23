@@ -7,8 +7,7 @@ rationale, consequences, or reversal conditions.
 ## 2026-06-23: Remove Narrow Fake-Provider Subset Tuning
 
 Decision: Remove narrow fake-provider finance rejection terms that were derived
-from the six-paper accepted subset, including special handling for VaR/trading
-risk phrases and descriptive long-range-dependence finance phrases.
+from individual papers in the six-paper accepted subset.
 
 Context: The first accepted subset is useful for debugging the workflow, but it
 is too small to justify paper-specific fake-provider calibration. Further
@@ -25,9 +24,9 @@ Alternatives considered:
 
 Consequence: The fake provider again treats explicit financial forecasting
 without applied economic fit as borderline/methods-watch rather than hard
-rejecting specific finance phrases. Current subset metrics are worse, but the
-baseline is less overfit and better aligned with its role as a deterministic
-pipeline control.
+rejecting narrow paper-specific phrases. Current subset metrics are worse, but
+the baseline is less overfit and better aligned with its role as a
+deterministic pipeline control.
 
 Reversal condition: Reintroduce stricter finance triage only from a broader
 human-labeled benchmark or as explicit editorial policy, not from a handful of
@@ -65,11 +64,10 @@ thresholds and document the new acceptance policy.
 Decision: `ets4 benchmark-status` now reports internally mixed accepted labels
 as non-blocking warnings rather than structural errors.
 
-Context: The first accepted subset contains useful human judgments, but two
-residual replay mismatches come from mixed label axes: one paper is labeled as a
-full deep dive while also using the applied-note track and short-mention
-selection, and one finance-risk paper is rejected at triage while retaining a
-positive category label. Those records should remain evaluable, but they should
+Context: The first accepted subset contains useful human judgments, but some
+residual replay mismatches come from mixed label axes, such as publication
+selection, publication track, triage decision, and category fields pointing in
+different directions. Those records should remain evaluable, but they should
 not silently drive provider or prompt changes.
 
 Alternatives considered:
