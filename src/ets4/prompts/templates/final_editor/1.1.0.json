@@ -1,0 +1,12 @@
+{
+  "stable_id": "ets4.final-editor.v1",
+  "version": "1.1.0",
+  "title": "ETS4 Final Editor",
+  "source_sha256": "c092ed843f1d3139f5956a90112e15540f82142455dd30c124b8e9f01fa4cc50",
+  "template_sha256": "35af32ea6520e6068ed64927d3f6927c87cb2a65d1391429712d1bf57015e613",
+  "changes": [
+    "Preserved the complete version 1.0.0 editorial, synthesis, coverage, and security protocol.",
+    "Added the plain-English, informal, objective writing instruction.",
+    "Added the issue presentation structure and compact metadata classification."
+  ]
+}

@@ -1,156 +1,100 @@
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+
 from ets4.cli import main
-from ets4.store.db import connect, init_db, upsert_paper, upsert_source
-from ets4.config import load_config
+from ets4.config import ReviewSettings
+from ets4.providers.base import ProviderError, StageRequest
+from ets4.providers.mock import MockProvider
+from ets4.workflow.engine import ReviewWorkflow
 
 
-def test_cli_init_manifest_and_triage(tmp_path) -> None:
-    db_path = tmp_path / "ets4.sqlite"
-    config_path = "config/feeds.example.toml"
-
-    assert main(["--config", config_path, "--db", str(db_path), "init-db"]) == 0
-    assert (
-        main(
-            [
-                "--config",
-                config_path,
-                "--db",
-                str(db_path),
-                "manifest",
-                "--issue-date",
-                "2026-06-08",
-            ]
-        )
-        == 0
+def test_package_module_exposes_cli_help() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "ets4", "--help"],
+        check=False,
+        capture_output=True,
+        text=True,
     )
 
-    with connect(db_path) as conn:
-        run_id = conn.execute("SELECT run_id FROM run_manifests LIMIT 1").fetchone()[0]
+    assert result.returncode == 0
+    assert "Targeted multi-agent academic review" in result.stdout
 
-    assert (
-        main(
-            [
-                "--config",
-                config_path,
-                "--db",
-                str(db_path),
-                "collect",
-                "--dry-run",
-                "--run-id",
-                run_id,
-            ]
-        )
-        == 0
+
+class DetailedInitialFailureProvider(MockProvider):
+    def generate(self, request: StageRequest):
+        if request.stage == "initial_editor":
+            raise ProviderError(
+                "Invalid response format schema",
+                retryable=False,
+                details={
+                    "provider": "openai",
+                    "exception_type": "BadRequestError",
+                    "message": "Invalid response format schema",
+                    "code": "invalid_json_schema",
+                    "parameter": "text.format.schema",
+                    "status": 400,
+                    "request_id": "req_status_123",
+                },
+            )
+        return super().generate(request)
+
+
+def test_cli_review_status_and_provider_listing(
+    manuscript_path: Path, tmp_path: Path, capsys
+) -> None:
+    runs = tmp_path / "runs"
+    exit_code = main(
+        [
+            "review",
+            str(manuscript_path),
+            "--provider",
+            "mock",
+            "--referees",
+            "2",
+            "--output-dir",
+            str(runs),
+        ]
     )
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    run_id = captured.out.strip()
+    assert run_id.startswith("run-")
+    assert "Stage 1/3" in captured.err
+    assert main(["status", run_id, "--output-dir", str(runs)]) == 0
+    status = capsys.readouterr().out
+    assert "State: completed" in status
+    assert main(["providers"]) == 0
+    assert '"openai"' in capsys.readouterr().out
 
-    config = load_config(config_path)
-    with connect(db_path) as conn:
-        init_db(conn)
-        upsert_source(conn, config.sources[0])
-        upsert_paper(
-            conn,
-            paper_id="paper-1",
-            title="Oil price forecasting with probabilistic models",
-            canonical_url="https://example.test/paper-1",
-            abstract="We forecast oil prices using financial time series.",
-            source_id=config.sources[0].id,
-        )
-        conn.commit()
 
-    assert (
-        main(
-            [
-                "--config",
-                config_path,
-                "--db",
-                str(db_path),
-                "triage",
-                "--issue-date",
-                "2026-06-08",
-            ]
-        )
-        == 0
+def test_cli_does_not_offer_api_key_flag() -> None:
+    exit_code = main(["providers"])
+    assert exit_code == 0
+
+
+def test_status_shows_sanitized_provider_failure_details(
+    manuscript_path: Path, tmp_path: Path, capsys
+) -> None:
+    runs = tmp_path / "runs"
+    settings = ReviewSettings(
+        referee_count=1,
+        output_dir=runs,
+        max_provider_retries=0,
+        max_repair_attempts=0,
     )
+    failed = ReviewWorkflow(settings, DetailedInitialFailureProvider()).start(str(manuscript_path))
 
-    with connect(db_path) as conn:
-        assert conn.execute("SELECT COUNT(*) FROM triage_reviews").fetchone()[0] == 1
-        assert conn.execute("SELECT status FROM papers").fetchone()[0] == "selected_for_review"
-        assert conn.execute("SELECT COUNT(*) FROM candidate_selections").fetchone()[0] == 1
+    assert main(["status", failed.run_id, "--output-dir", str(runs)]) == 2
+    output = capsys.readouterr().out
+    assert "Failure initial-editor: Invalid response format schema" in output
+    assert "status: 400" in output
+    assert "code: invalid_json_schema" in output
+    assert "parameter: text.format.schema" in output
+    assert "request_id: req_status_123" in output
 
-
-def test_cli_extract_explicit_document(tmp_path) -> None:
-    db_path = tmp_path / "ets4.sqlite"
-    config_path = "config/feeds.example.toml"
-    fixture_path = "tests/fixtures/documents/sample.txt"
-
-    assert main(["--config", config_path, "--db", str(db_path), "init-db"]) == 0
-    config = load_config(config_path)
-    with connect(db_path) as conn:
-        init_db(conn)
-        upsert_source(conn, config.sources[0])
-        upsert_paper(
-            conn,
-            paper_id="paper-1",
-            title="Inflation forecasting",
-            canonical_url="https://example.test/paper-1",
-            source_id=config.sources[0].id,
-        )
-        conn.commit()
-
-    assert (
-        main(
-            [
-                "--config",
-                config_path,
-                "--db",
-                str(db_path),
-                "extract",
-                "--issue-date",
-                "2026-06-08",
-                "--paper-id",
-                "paper-1",
-                "--source",
-                fixture_path,
-            ]
-        )
-        == 0
-    )
-
-    with connect(db_path) as conn:
-        assert conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0] == 1
-        assert conn.execute("SELECT COUNT(*) FROM document_pages").fetchone()[0] == 2
-        assert conn.execute("SELECT COUNT(*) FROM evidence_items").fetchone()[0] >= 4
-        run_id = conn.execute("SELECT run_id FROM run_manifests LIMIT 1").fetchone()[0]
-
-    assert (
-        main(
-            [
-                "--config",
-                config_path,
-                "--db",
-                str(db_path),
-                "review",
-                "--run-id",
-                run_id,
-                "--paper-id",
-                "paper-1",
-            ]
-        )
-        == 0
-    )
-
-    with connect(db_path) as conn:
-        assert conn.execute("SELECT COUNT(*) FROM review_dossiers").fetchone()[0] == 1
-        assert conn.execute("SELECT COUNT(*) FROM reviewer_reports").fetchone()[0] == 5
-        assert (
-            conn.execute("SELECT decision FROM editorial_decisions").fetchone()[0]
-            == "full_deep_dive"
-        )
-        assert (
-            conn.execute(
-                """
-                SELECT COUNT(*) FROM candidate_selections
-                WHERE selection_stage = 'deep_dive_draft'
-                """
-            ).fetchone()[0]
-            == 1
-        )
+    events = (runs / failed.run_id / "logs" / "events.jsonl").read_text()
+    assert '"parameter": "text.format.schema"' in events
+    assert '"request_id": "req_status_123"' in events

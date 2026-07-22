@@ -1,44 +1,69 @@
 [build-system]
-requires = ["setuptools>=69", "wheel"]
+requires = ["setuptools>=75", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "ets4"
-version = "0.1.0"
-description = "Editorial review tooling for economic time-series forecasting research."
+version = "0.2.1"
+description = "Targeted multi-agent academic review for economic time-series forecasting."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
+keywords = ["academic-review", "forecasting", "time-series"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
+]
 dependencies = [
     "beautifulsoup4>=4.12",
-    "feedparser>=6.0",
-    "openai>=1.0",
-    "pymupdf>=1.23",
-    "python-dateutil>=2.8",
-    "requests>=2.31",
-    "tomli>=2.0; python_version<'3.11'",
+    "openai>=2.45,<3",
+    "pydantic>=2.10",
+    "pymupdf>=1.24",
+    "requests>=2.32",
 ]
 
 [project.optional-dependencies]
-deepdive = [
-    "markdown>=3.5",
-    "python-dotenv>=1.0",
-    "weasyprint>=60",
-]
 dev = [
-    "pytest>=8.0",
-    "ruff>=0.6",
+    "mypy>=1.14",
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "ruff>=0.9",
+    "types-requests>=2.32",
 ]
 
 [project.scripts]
 ets4 = "ets4.cli:main"
 
+[project.urls]
+Repository = "https://github.com/andreaviselli/ets4"
+Issues = "https://github.com/andreaviselli/ets4/issues"
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+ets4 = ["py.typed"]
+"ets4.prompts" = ["templates/**/*.txt", "templates/**/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "live: calls an external model provider and is disabled by default",
+]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["UP042", "UP046"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["ets4"]
+warn_unused_configs = true

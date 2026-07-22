@@ -1,0 +1,11 @@
+{
+  "stable_id": "ets4.initial-editor.v1",
+  "version": "1.0.0",
+  "title": "ETS4 Initial Editor",
+  "source_sha256": "37ebd396140235bdf45df17622fe5a2bb4c2d2af5726674ba2b9cd310e149350",
+  "changes": [
+    "Canonicalized the supplied PDF prompt.",
+    "Parameterised the referee count.",
+    "Added an explicit untrusted-manuscript and no-tools boundary."
+  ]
+}

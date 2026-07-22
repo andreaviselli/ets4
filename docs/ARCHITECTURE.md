@@ -1,179 +1,79 @@
-# ETS4 Architecture
+# Architecture
 
-ETS4 is an evidence-grounded editorial review engine for applied economic
-forecasting research. It should not be designed as a newsletter script or broad
-curiosity feed. The core product is a reproducible review system that can
-explain why a paper was selected for a practitioner/applied forecasting audience,
-what evidence supports the selection, where the assessment is weak, and whether
-the review process is improving over time.
+## Project boundary
 
-## Product Boundary
-
-ETS4 owns:
-
-- source discovery and metadata normalization
-- paper/full-text acquisition
-- evidence extraction
-- multi-stage editorial review
-- evaluation and regression testing of review quality
-- draft generation and export
-
-ETS4 does not own:
-
-- final website rendering
-- publication approval
-- manual editorial corrections
-- claims that cannot be traced to source evidence
-
-The publishing site should be treated as a downstream target. ETS4 may export a
-draft page, but it must never silently publish or flip a page out of draft mode.
-
-## Architecture Principles
-
-1. **Evidence before prose.** Summaries should be generated only after the system
-   has extracted source-backed claims, methods, data, metrics, limitations, and
-   uncertainty flags.
-2. **Review before generation.** Draft pages are downstream artifacts. The
-   durable product is the structured review record.
-3. **Evaluation gates model changes.** Prompts, models, retrieval logic, and
-   reviewer rubrics should not change production behavior without benchmark
-   comparison.
-4. **Panel simulation, not single-agent judgment.** Review should preserve
-   independent specialist reports, disagreement, editor decisions, and human
-   adjudication states.
-5. **Budgeted editorial selection.** The human editor should set cost and paper
-   limits before expensive review steps, then make the final publication
-   selection from the reviewed queue before export.
-6. **Provider abstraction.** LLM calls should sit behind a model interface so the
-   project can compare OpenAI, local, and other hosted models without rewriting
-   workflows.
-7. **Human-in-the-loop by design.** The system should produce editor questions,
-   confidence flags, and unresolved issues rather than pretending full
-   automation is sufficient.
-8. **Deterministic core, probabilistic edge.** Fetching, parsing, deduplication,
-   storage, scoring schemas, and exports should be deterministic and tested.
-   LLM outputs should be structured, validated, and versioned.
-
-## Target Pipeline
-
-1. Collect candidate papers from configured sources.
-2. Normalize metadata and deduplicate by DOI, arXiv id, canonical URL, and fuzzy title.
-3. Store every candidate paper before model review.
-4. Create a run manifest with issue date, model policy, cost budget, paper
-   budget, override policy, and allowed actions.
-5. Run desk screening on title, abstract, source, and metadata.
-6. Rank candidates under the editorial budget and apply coarse human overrides.
-7. Assign independent specialist reviewers for selected candidates.
-8. Fetch full text only for papers assigned to full review.
-9. Build an evidence dossier with source locators, claim candidates, figures,
-   tables, datasets, metrics, baselines, and code links.
-10. Run independent specialist reviews against structured rubrics.
-11. Reconcile disagreement and produce a handling-editor decision memo.
-12. Rank fully reviewed papers for short mentions and deep dives.
-13. Write a human publication-selection review queue.
-14. Apply accepted human decisions and store deviation notes in the selection registry.
-15. Generate public draft, claim ledger, and internal review notes.
-16. Export to a configured publishing repository with `draft: true`.
-
-## Core Components
-
-### Source Registry
-
-Configured feeds and APIs live outside code. Each source should define its name,
-type, URL, expected quality, polling cadence, and parser hints. Hard-coded source
-lists in notebooks are obsolete.
-
-### Paper Store
-
-Use SQLite first. It is sufficient for a single-editor workflow, inspectable, and
-easy to back up. Store papers, source events, extracted documents, evidence
-items, review runs, reviewer outputs, decisions, human selection reviews,
-exports, and evaluation labels.
-
-### Document Processor
-
-The processor should retrieve abstracts and full text, convert PDFs to structured
-page text, preserve page numbers, and extract tables/figures when possible.
-Every extracted evidence item should retain a source locator.
-
-### Review Orchestrator
-
-The orchestrator runs role-specific reviewers and writes structured JSON. It
-should support reviewer assignment, reviewer isolation before reconciliation,
-minority reports, retries, schema validation, model/version logging, temperature
-control, and deterministic replay where possible.
-
-### Editorial Budget Manager
-
-The budget manager enforces the issue's cost and paper-count limits. It ranks
-papers for full review, short mention, and deep-dive draft generation, applies
-human include/exclude overrides, writes the final publication-selection review
-queue, estimates expected cost before expensive steps, and stops the run when a
-hard budget would be exceeded.
-
-### Human Selection Registry
-
-After panel review, ETS4 writes a machine-checkable JSON queue that lets the
-human editor keep, downgrade, promote, or cut reviewed papers before export.
-Applying the accepted file rewrites only publication-selection rows and stores
-deviation notes in SQLite. These notes are operational precedent; they are not
-accepted benchmark labels unless separately reviewed through the benchmark
-workflow.
-
-### Evaluation Harness
-
-Evaluation is not optional. It should run on labeled paper sets and compare
-reviewer versions before deployment. See `docs/EVALUATION.md`.
-
-### Draft Exporter
-
-The exporter converts approved review records into Markdown plus a companion
-editorial-notes file. It should use human-applied publication selections when
-they exist. Export should be idempotent and should never overwrite manual edits
-unless explicitly requested.
-
-### Automation Runner
-
-The runner should support scheduled collection and draft generation. It must
-create a run manifest, enforce cost limits, write artifacts, and stop at human
-review. Automation may open a draft pull request, but it must not publish.
-
-## Proposed Repository Layout
+ETS4 is a local-first Python 3.12 package and command-line tool. It reads manuscripts, renders the review prompts, checks model output, controls the workflow, saves run files, and renders Markdown. It does not own the public website or publish papers.
 
 ```text
-src/ets4/legacy.py       # legacy prototype retained until migrated
-config/
-  feeds.example.toml     # source registry example
-data/                    # local SQLite/cache files, ignored except .gitkeep
-docs/
-  ARCHITECTURE.md
-  EVALUATION.md
-  REVIEW_WORKFLOW.md
-  ROADMAP.md
-exports/                 # generated drafts, ignored except .gitkeep
-pyproject.toml
-README.md
+CLI / future API shapes
+          |
+          v
+ReviewWorkflow (stage order, retries, resume)
+   |          |             |                |
+PDF input   prompts      providers         storage
+   |          |             |                |
+PDF + text  typed data   mock / OpenAI     JSON, Markdown,
+                                            and event logs
+          \       |       /
+             checked models
 ```
 
-New implementation code should live in the package layout:
+The workflow depends on provider-independent Python types, not OpenAI SDK types. Prompts are rendered before a provider call, and prompt code does not build provider payloads.
+
+## The three stages
+
+1. PDF input reads every page, saves the original file and page text, and calculates its SHA-256 hash.
+2. The initial editor receives the full manuscript and returns an `EditorPanelDesign` for the requested panel size.
+3. The workflow creates one separate `StageRequest` for each referee. A referee receives the full manuscript and only their own profile.
+4. Referees run in a limited thread pool. Each valid report is saved as soon as it finishes.
+5. The workflow checks the expected referee IDs and total. If any report is missing, the run moves to `awaiting_retry` and the final editor stays blocked.
+6. The final editor receives the full manuscript, the panel design, and every referee report. It returns a `FinalEditorDecision`.
+7. The workflow checks that the coverage table still contains every original row and planned cell, writes Markdown and usage data, and completes the run.
+
+The initial and final editor are the same logical role, linked by saved Stage 1 data. There is no hidden shared model conversation.
+
+## Saved run state
+
+`run-manifest.json` is the main record of progress:
 
 ```text
-src/ets4/
-  cli.py
-  config.py
-  collect/
-  documents/
-  review/
-  evaluate/
-  export/
-  store/
-tests/
+manuscript_received -> manuscript_normalized -> initial_editor_completed
+-> referee_jobs_created -> referee_reports_in_progress
+-> referee_reports_completed -> final_editor_completed
+-> outputs_rendered -> completed
 ```
 
-## Non-Goals
+A model failure becomes `awaiting_retry`; a user cancellation becomes `cancelled`. ETS4 finishes writing each output before it updates the manifest. On resume, it can recover a valid JSON output written just before a process stopped, so a paid call is not repeated.
 
-- No autonomous publishing.
-- No ungrounded summaries.
-- No production logic in notebooks.
-- No one-shot relevance scoring as the final editorial decision.
-- No prompt changes without evaluation.
+The input fingerprint covers:
+
+- the manuscript SHA-256;
+- prompt versions;
+- output-schema hashes;
+- provider and SDK details;
+- provider and model settings;
+- panel size and limits that can affect results.
+
+The fingerprint helps compare runs and spot duplicates. It does not mean that model output will be identical.
+
+## Provider boundary
+
+A provider reports its features, checks that it can handle the full manuscript, makes one separate structured call, classifies retryable errors, and returns usage and response details when available.
+
+The OpenAI adapter uses `client.responses.parse`, Pydantic output models, and a base64 `input_file`. The mock adapter uses the same workflow without network access or cost.
+
+OpenAI's strict output format does not allow open-ended object keys. Coverage tables therefore use arrays of typed referee cells, while local checks still require the exact referee IDs. ETS4 checks this format before each OpenAI request.
+
+## Storage boundary
+
+Each run is a normal directory that can be inspected or moved. JSON is the source for structured data; Markdown is the readable view. Raw provider output is kept separately and only when the retention setting allows it.
+
+The old digest product used SQLite and export folders. The current review package does not.
+
+## Python package and future API
+
+Installable code lives under `src/ets4/`. `ets4.cli` is the supported user interface, and `ets4.__main__` lets the same CLI run through `python -m ets4`.
+
+`src/ets4/api/contracts.py` contains only data shapes for a possible future service. A hosted service should call the same workflow from background workers. Web routing, login, uploads, queues, and private storage must stay outside the review and provider modules.
+
+See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) for package-release work and [`adr/`](adr/) for the main design decisions.

@@ -1,39 +1,40 @@
-# Secrets
+# Secrets and local configuration
 .env
 .env.*
 !.env.example
+config/ets4.toml
+# Preserve ignored legacy local configuration from the archived product.
+config/feeds.toml
 
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.coverage
+htmlcov/
 .venv/
 venv/
 dist/
 build/
 *.egg-info/
 
-# Jupyter
-.ipynb_checkpoints/
-
-# macOS
+# Editors and operating systems
 .DS_Store
+.idea/
+.vscode/
 
-# Runtime state and generated editorial outputs
-config/feeds.toml
+# Confidential runtime artifacts
+runs/
 data/*
 !data/.gitkeep
 exports/*
 !exports/.gitkeep
+tmp/
 *.sqlite
 *.sqlite3
+
+# Generated documentation
 docs/*.html
 docs/*_files/
-
-# Removed local legacy/generated directories
-deepdives/
-newsletters/
-old-deprecated/

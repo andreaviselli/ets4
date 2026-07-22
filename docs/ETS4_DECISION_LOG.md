@@ -1,508 +1,150 @@
-# ETS4 Decision Log
-
-This file records durable architectural and editorial decisions. It is not a
-changelog. Add entries when a future agent or human editor would need the
-rationale, consequences, or reversal conditions.
-
-## 2026-06-23: Add Human Publication-Selection Review Before Export
-
-Decision: Add a JSON-based human publication-selection review workflow after
-panel review and before draft export. The review file is prefilled with the
-agent recommendation, but the human editor must accept each reviewed paper and
-add a note whenever the final selection, editorial decision, or publication
-track deviates from the agent.
-
-Context: A replay against the first accepted subset showed persistent
-overselection and publication-track overpromotion. The desired operating model
-is not to replace automated scoring, but to make the agent return an editable
-selection queue that the human editor sharpens before export. Human deviation
-notes should accumulate as historical editorial precedent without being
-mistaken for accepted evaluation labels.
-
-Alternatives considered:
-
-- Keep only static `force_include` and `force_exclude` config controls.
-- Treat human edits as accepted benchmark labels.
-- Add a dedicated UI before the file workflow exists.
-- Add a machine-checkable JSON review file and SQLite registry first.
-
-Consequence: `ets4 human-selection-template` creates ignored review JSON under
-`exports/selection-reviews/`, and `ets4 human-selection-apply` rewrites only
-the publication selection rows while storing human decisions in
-`human_selection_reviews`. The registry is not yet exposed to providers as a
-casebook, preserving the current holdout/casebook separation.
-
-Reversal condition: Replace or extend the JSON file workflow with an
-interactive editor if monthly use shows that file editing is too error-prone.
-Agent-visible precedent lookup should still wait until benchmark coverage is
-large enough to avoid contaminating holdout evaluation.
-
-## 2026-06-23: Use Application Plus Novelty as the Core Selection Rubric
-
-Decision: ETS4 should classify papers using a concise general rubric: selected
-papers should combine a useful applied forecasting application with either
-methodological novelty or a genuinely interesting empirical angle on an existing
-method.
-
-Context: The first OpenAI replay overpromoted papers whose application value,
-novelty, or empirical angle was not strong enough for the main product. A
-term-specific correction would overfit the tiny accepted subset and make future
-provider behavior brittle. The human editor clarified that the real editorial
-judgment is not based on method names or source categories, but on whether a
-paper is applied, useful to practitioners or applied researchers in economic
-time-series forecasting, and has enough novelty or fresh empirical angle to be
-worth readers' attention.
-
-Alternatives considered:
-
-- Add paper-specific or method-specific rejection terms from the accepted subset.
-- Provide a long multi-axis checklist to the provider.
-- Use a short rubric focused on applied forecasting value plus novelty or
-  interesting empirical angle.
-
-Consequence: Prompts and labels should avoid narrow method-name rules. Pure
-theory, pure methodology, non-forecasting work, doubtful-integrity work,
-low-transferability applications, and uninteresting research questions should
-be rejected. Useful but routine applied papers may become applied notes, while
-novel methods with weak application fit should not become deep dives.
-
-Reversal condition: If broader human labels show that the rubric suppresses
-important papers or admits too much low-value applied work, revise the rubric at
-the conceptual level rather than adding paper-specific terms.
-
-## 2026-06-23: Add OpenAI Provider for Evaluation, Not Adoption
-
-Decision: Implement an OpenAI provider behind the existing ETS4 model-provider
-interface for evaluation-only replay and comparison, while keeping the
-deterministic fake provider as the committed default.
-
-Context: The provider gate is still failing because the benchmark is small,
-accepted-label warnings remain, and editorial accuracy is below threshold.
-However, the human editor explicitly directed ETS4 to proceed with real
-LLM-provider implementation because LLM agents are the intended scoring path in
-real use. This is an implementation step, not production adoption.
-
-Alternatives considered:
-
-- Block all real-provider code until the benchmark reaches the full gate.
-- Add OpenAI as the default provider immediately.
-- Add OpenAI behind the existing interface, require local ignored configuration
-  for use, and continue treating gate failures as blockers for adoption.
-
-Consequence: ETS4 can now run measured OpenAI-provider experiments against the
-accepted subset and future benchmarks. Provider outputs remain structured and
-stored through the existing triage/review records, with API token usage recorded
-when returned. Scheduled or publication-facing runs should still use the fake
-baseline unless the provider gate passes or a later decision-log entry records
-another explicit override.
-
-Reversal condition: Disable or remove the OpenAI provider if evaluation shows
-unacceptable unsupported-claim risk, invalid citation behavior, poor
-hard-negative precision, excessive cost, or outputs that are harder for the
-human editor to audit than the fake baseline.
+# ETS4 decision log
 
-## 2026-06-23: Remove Narrow Fake-Provider Subset Tuning
+This file records choices that should survive day-to-day code changes. The old applied-digest decisions remain in Git under tag `archive/pre-targeted-review-2026-07-14`.
 
-Decision: Remove narrow fake-provider finance rejection terms that were derived
-from individual papers in the six-paper accepted subset.
+## 2026-07-14: replace the applied digest with manuscript review
 
-Context: The first accepted subset is useful for debugging the workflow, but it
-is too small to justify paper-specific fake-provider calibration. Further
-optimizing the deterministic baseline against those six labels would create a
-misleading sense of accuracy and weaken the reason to add a real LLM provider
-behind the measured gate.
+Decision: ETS4 is now the three-stage paper-review system defined by the July 2026 brief and prompt PDFs. The old feed, sorting, digest, benchmark, and export code is no longer part of the active package.
 
-Alternatives considered:
+Why: The brief said the old purpose was unrelated and should be replaced, while keeping its history.
 
-- Keep the tuned fake provider because it produced fewer subset mismatches.
-- Add more paper-specific finance terms for the remaining residual cases.
-- Remove narrow tuning and accept worse subset metrics until broader labels or
-  a real provider justify more general behavior.
+Options considered:
 
-Consequence: The fake provider again treats explicit financial forecasting
-without applied economic fit as borderline/methods-watch rather than hard
-rejecting narrow paper-specific phrases. Current subset metrics are worse, but
-the baseline is less overfit and better aligned with its role as a
-deterministic pipeline control.
+- keep both products in one package;
+- create another package in this repository;
+- tag the old version and give ETS4 one clear purpose.
 
-Reversal condition: Reintroduce stricter finance triage only from a broader
-human-labeled benchmark or as explicit editorial policy, not from a handful of
-subset examples.
+Result: Commit `8d3be59` is protected by the archive tag. Current code and docs describe only manuscript review.
 
-## 2026-06-22: Codify the Real-Provider Adoption Gate
+Revisit if: The digest is needed again. Restore or fork it from the tag instead of mixing both products.
 
-Decision: `ets4 evaluate --gate` and `ets4 replay-baseline --gate` now report a
-real-provider readiness gate based on benchmark quality, label consistency, and
-core evaluation metrics.
+## 2026-07-14: let Python control the workflow
 
-Context: The current fake-provider replay performs well on several metrics but
-the accepted subset is still small and has unresolved label warnings. Without a
-formal gate, agents could mistake a few improved metrics for permission to add
-or adopt a real model provider.
+Decision: Python code controls stage order, referee contexts, parallel calls, retries, checks, saved files, cancellation, and final-editor release.
 
-Alternatives considered:
+Why: Free-form model handoffs could expose one referee's work to another, start the final editor too early, or repeat paid calls after failure.
 
-- Keep provider readiness as prose in pilot-validation docs only.
-- Make failed gates cause `evaluate` to exit non-zero.
-- Add an advisory gate report that can be stored, printed, or emitted as JSON.
+Options considered:
 
-Consequence: Provider adoption remains blocked until the benchmark has enough
-coverage, no validation errors or label warnings, explicit hard negatives,
-adequate full-review examples, strong recall/precision, high evidence coverage,
-valid citations, no hidden disagreement, and calibrated editorial/publication
-decisions. The gate is advisory so evaluation can still run and store results.
+- provider-hosted assistant threads;
+- model-directed agent handoffs;
+- a clear local state machine with separate structured calls.
 
-Reversal condition: If later pilot evidence shows these thresholds are too
-strict, too lenient, or missing a critical quality dimension, revise the gate
-thresholds and document the new acceptance policy.
+Result: Review models receive no tools and cannot choose the next step. Each referee gets a separate request. The final editor starts only when the fixed panel is complete.
 
-## 2026-06-22: Treat Benchmark Label Inconsistencies as Warnings
+Revisit if: Another workflow system can prove the same context separation, safe file writes, resume behavior, fixed-panel checks, and provider independence.
 
-Decision: `ets4 benchmark-status` now reports internally mixed accepted labels
-as non-blocking warnings rather than structural errors.
+## 2026-07-14: use Responses, structured output, and inline PDFs
 
-Context: The first accepted subset contains useful human judgments, but some
-residual replay mismatches come from mixed label axes, such as publication
-selection, publication track, triage decision, and category fields pointing in
-different directions. Those records should remain evaluable, but they should
-not silently drive provider or prompt changes.
+Decision: The OpenAI adapter uses `client.responses.parse`, Pydantic output models, and a base64 PDF `input_file`. It sets `store=false` by default and gives the model no tools.
 
-Alternatives considered:
+Why: Official OpenAI docs support Pydantic parsing and say capable models can receive PDF text and page images. Inline data avoids creating a separate Files API object.
 
-- Reject any accepted benchmark file with label-axis inconsistencies.
-- Ignore inconsistencies and treat all residual mismatches as model failures.
-- Preserve evaluation readiness while surfacing warnings for human cleanup.
+Options considered:
 
-Consequence: Small pilot benchmarks can still be evaluated, and residual errors
-can be separated into clear model behavior versus labels that need editorial
-clarification. Future benchmark expansion should resolve warnings before using
-the subset as a provider-adoption gate.
+- Assistants API;
+- plain JSON text checked only after the call;
+- extracted text instead of the PDF;
+- Files API uploads.
 
-Reversal condition: If benchmark governance becomes stricter or warnings remain
-unresolved in a formal release gate, promote selected warning classes to
-validation errors.
+Result: Models can inspect equations, tables, figures, and layout. Local text extraction still checks completeness and page mapping. Provider-specific code stays behind `Provider`.
 
-## 2026-06-22: Make Practitioner/Applied Forecasting the Default Product
+Revisit if: The SDK, API, chosen model, file handling, output format, or retention rules change.
 
-Decision: ETS4's default editorial product is a practitioner/applied economic
-forecasting digest, not a broad curiosity feed.
+## 2026-07-14: keep the panel fixed after Stage 1
 
-Context: The first accepted benchmark subset showed that a vague
-"interesting forecasting-adjacent papers" scope mixes practitioner applications,
-academic methods, and general curiosity. That makes evaluation ambiguous and
-risks confusing readers.
+Decision: Once Stage 1 creates the panel, its size stays fixed for that run. The final appendix can report missed coverage but cannot add referees or change the paper recommendation just because coverage was weak.
 
-Alternatives considered:
+Why: The general process document mentioned later reviewers, but the higher-priority brief and final-editor prompt forbid them.
 
-- Broad curiosity feed optimized for social-media dissemination.
-- Academic methods watch as the main product.
-- Practitioner/applied forecasting digest with a secondary methods-watch lane.
+Options considered:
 
-Consequence: Benchmark labels now include explicit rubric fields for audience
-fit, application type, economic relevance, forecasting contribution,
-publication track, and social hook potential. Social hook potential is
-dissemination metadata only; it should not promote weakly applied work into the
-main track.
+- add specialists when a gap appears;
+- ask the final editor to fill missing review areas;
+- keep the panel fixed and report its limits.
 
-Reversal condition: A future editorial decision may create a separate curiosity
-or academic-methods product, but that should be represented as a distinct
-publication track or issue type rather than diluting the default product.
+Result: Runs have clear costs and can be compared. Coverage gaps help improve later panel design rather than changing the current review.
 
-## 2026-06-22: Tighten the Fake Provider Around Applied Track Fit
+Revisit if: A new, clearly versioned protocol adds another round with human approval.
 
-Decision: The deterministic fake provider now treats generic financial or
-time-series method papers as borderline, watchlist, or reject unless they show
-explicit applied economic forecasting fit. Full deep-dive handling-editor
-decisions are capped when the paper lacks both an explicit forecasting signal
-and an applied economic signal.
+## 2026-07-14: keep raw local responses by default
 
-Context: The accepted pilot subset error report showed repeated overpromotion:
-the fake baseline marked financial/time-series methods and weakly applied papers
-as directly relevant deep dives when human labels expected applied notes,
-methods-watch treatment, human adjudication, or rejection.
+Decision: Local runs keep raw provider responses under `logs/raw/` unless the user turns this off.
 
-Alternatives considered:
+Why: Original responses help auditing, but papers may be confidential and retention must be visible.
 
-- Leave the fake provider as a loose pipeline smoke-test baseline.
-- Add a real model provider before reducing known deterministic overpromotion.
-- Tighten the fake baseline to encode the practitioner/applied product gate
-  before provider comparison.
+Options considered:
 
-Consequence: Future fake-provider evaluations should be more conservative on
-generic finance, trading-risk, volatility, and method-only papers. Stored pilot
-metrics from earlier runs remain valid historical baselines but should not be
-treated as the current deterministic baseline until a fresh run is generated.
+- never keep raw responses;
+- always keep them;
+- keep them by default only for local runs and require a separate hosting policy.
 
-Reversal condition: If broader accepted benchmarks show that the stricter fake
-provider suppresses high-value applied forecasting papers, loosen the term
-rules or move this logic into explicit, testable editorial rubric scoring.
+Result: Users must protect and delete run directories. A hosted service cannot copy this default without login, encryption, user separation, and deletion rules.
 
-## 2026-06-22: Compare Baselines with Replay Before Provider Changes
+Revisit if: Real users often handle confidential papers without suitable local controls. In that case, default to no raw retention and keep an explicit opt-in audit mode.
 
-Decision: ETS4 should use `replay-baseline` to compare deterministic rubric,
-selection, and provider-interface changes against an existing collected run
-before adding or adopting a real model provider.
+## 2026-07-14: use closed output shapes and bind resume to versions
 
-Context: The first accepted subset was small, and source collection/retrieval
-state is local runtime data. Recollecting sources for every comparison would
-mix model/prompt changes with source drift, while evaluating only the original
-stored run would not measure current code.
+Decision: Coverage data uses typed cell arrays, not objects with arbitrary keys. ETS4 checks every OpenAI output shape before a request. Manifests record output-schema hashes and provider runtime details, and resume refuses incompatible changes.
 
-Alternatives considered:
+Why: The first live initial-editor request failed with `invalid_json_schema`. A Pydantic `dict[str, CoverageLevel]` produced an `additionalProperties` shape that strict Structured Outputs rejected. The old run did not record enough schema or SDK detail for safe resume.
 
-- Re-run the full scheduled pipeline from live sources for every comparison.
-- Evaluate only already stored model outputs.
-- Replay triage and review over the same stored papers and evidence, then
-  evaluate the new run against the same accepted labels.
+Options considered:
 
-Consequence: `replay-baseline` creates a new evaluation-mode run from papers
-triaged in a source run, reuses stored evidence, and can evaluate accepted
-labels immediately. This keeps accepted labels as ignored local artifacts while
-making deterministic baseline comparisons reproducible inside SQLite.
+- create a new Pydantic class for every panel size;
+- parse free-form JSON;
+- use cell arrays and check exact referee IDs locally.
 
-Reversal condition: If replayed runs diverge from real scheduled runs because
-stored evidence is stale or source mix changes materially, require a fresh
-pilot collection before comparing providers.
+Result: One output shape works for every supported panel size. Safe error details are saved. Runs created before the added version data must restart.
 
-## 2026-06-22: Separate Editorial Decision from Publication Track
+Revisit if: Another provider needs a different wire format that maps exactly to the same ETS4 data and records its own version details.
 
-Decision: Handling-editor memos now include an explicit `publication_track`
-separate from the editorial decision.
+## 2026-07-22: document local use before expanding the product
 
-Context: The accepted pilot subset showed that a paper can deserve substantial
-editorial attention while still belonging in an applied-note lane rather than a
-main practitioner deep dive. Conversely, a watchlist or human-adjudication
-decision does not necessarily mean the paper should appear in the publication.
-The previous evaluation derived publication track from decision and selection
-state, which overcounted method-watch/watchlist papers as publishable items and
-made applied-note calibration hard to measure.
+Decision: Treat the local OpenAI workflow as working after two complete real-paper runs. Correct the public description next, while leaving formal human scoring, another provider, and hosting as optional work.
 
-Alternatives considered:
+Why: Both four-referee runs completed and were useful to the user. The old roadmap made optional expansion look like a gate before simple documentation work.
 
-- Keep deriving publication track from editorial decision and selection stage.
-- Add more decision enum values that mix handling status and publication lane.
-- Keep the editorial decision enum stable and add explicit publication-track
-  metadata to the memo.
+Options considered:
 
-Consequence: Evaluation prefers the memo `publication_track` when present and
-falls back to derived mapping for older stored runs. Deep-dive draft selection
-now requires `full_deep_dive`, and short-mention selection requires
-`short_mention`; watchlist and human-adjudication records do not automatically
-become publication artifacts.
+- require formal scoring next;
+- require another provider;
+- build hosting before correcting the site;
+- document the working local tool now.
 
-Reversal condition: If later human labels need more lanes, extend
-`publication_track` values or add an issue type rather than folding track
-semantics back into editorial decisions.
+Result: The local CLI remains the supported interface. Formal evaluation is still available when a prompt or model changes, and hosting security remains mandatory if public submissions are added.
 
-## 2026-06-22: Refresh Evidence from Stored Pages for Extraction Comparisons
+Revisit if: A concrete need appears, such as image-only papers, another provider, public submissions, or an important prompt change.
 
-Decision: ETS4 can rebuild evidence items from stored extracted document pages
-with `refresh-evidence`, without refetching documents.
+## 2026-07-22: make reports easier to read
 
-Context: The first accepted subset exposed required evidence kinds that were not
-covered by the original generic extractor, such as scenario, judgement,
-structural breaks, regime switching, Covid-19, volatility, and trading. The
-source PDF/text pages were already stored in SQLite, so measuring improved
-evidence rules should not require network retrieval or source recollection.
+Decision: Prompt version `1.1.0` asks for plain English and an informal but objective tone. Final issues use six short reader-facing sections and one compact assessment line.
 
-Alternatives considered:
+Why: Version `1.0.0` exposed output fields as a checklist and separated referee reasoning. It was accurate but harder to read.
 
-- Re-run document retrieval for every evidence rule change.
-- Leave older pilot evidence untouched and measure only future fresh runs.
-- Rebuild evidence items from stored pages while preserving document and page
-  records.
+Options considered:
 
-Consequence: Evidence-rule changes can be compared on existing ignored pilot
-databases by running `ets4 refresh-evidence --run-id ...` followed by
-`ets4 replay-baseline --labels ... --errors`. This keeps runtime artifacts out
-of Git while making evidence coverage improvements measurable.
+- change only Markdown rendering;
+- add detailed style rules to every comment;
+- use one simple shared style rule and structure only the final report;
+- replace checked issue data with free-form prose.
 
-Reversal condition: If stored pages are incomplete, stale, or from a failed
-extraction path, run fresh extraction or a new pilot instead of relying on
-refresh.
+Result: The referee format and review rules stay the same. JSON keeps referee-specific reasoning for audit, while Markdown presents one clear explanation per issue. Version `1.0.0` remains available.
 
-## 2026-06-05: Treat Phase 7 Completion as a Validation Gate, Not Production
+Revisit if: The tone reduces precision, the section labels fit poorly, or audit needs require referee names in the readable report.
 
-Decision: Completing the seven implementation phases does not make ETS4
-production-ready.
+## 2026-07-22: prepare a staged Python package release
 
-Context: ETS4 can collect, triage, extract evidence, review, evaluate, export,
-archive, and run scheduled drafts. However, review quality has not yet been
-validated against a human-labeled benchmark.
+Decision: Keep installation from a repository checkout as the supported path while preparing a proper public package release. Support both `ets4` and `python -m ets4`, test built files in a clean environment, and do not claim PyPI availability before a licence and release process are in place.
 
-Alternatives considered:
+Why: The repository already builds a wheel, but the README only showed an editable developer install and there was no release checklist. Publishing immediately would leave ownership, licence, metadata, and clean-install checks unresolved.
 
-- Start website integration immediately.
-- Add a real model provider immediately.
-- Run pilot validation before production or provider escalation.
+Options considered:
 
-Consequence: The active milestone is pilot validation. Website integration and
-real provider work remain gated by benchmark results and human editorial review.
+- keep the developer-only install instructions;
+- publish the current wheel immediately;
+- improve local package use now and release only after the checklist passes.
 
-Reversal condition: ETS4 has at least one accepted benchmark, evaluation results
-show no critical unsupported-claim or hard-negative failures, and the human
-editor explicitly approves moving to integration or real-provider work.
+Result: User and developer install steps are separate, package metadata is clearer, and [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) holds the remaining release work.
 
-## 2026-06-05: Keep Fake Provider as the Baseline
-
-Decision: The fake provider remains the default baseline until a human benchmark
-exists.
-
-Context: The fake provider is deterministic, offline, cheap, and testable. It is
-not intended to produce SOTA editorial prose, but it gives stable outputs for
-pipeline validation.
-
-Alternatives considered:
-
-- Add OpenAI or another real model provider before benchmark labeling.
-- Tune prompts or model behavior based on subjective inspection only.
-
-Consequence: Real providers should be compared against the fake-provider
-baseline on the same accepted benchmark before adoption.
-
-Reversal condition: A human benchmark exists and a candidate provider improves
-target metrics without unacceptable regressions in unsupported claims, hard
-negative precision, evidence citation validity, cost, or disagreement handling.
-
-## 2026-06-05: Require Evidence Before Review
-
-Decision: Full review should be grounded in stored evidence items, not only
-abstracts or model impressions.
-
-Context: Pilot runs showed that HTML pages and weak retrieval can produce
-boilerplate evidence if not guarded. This risks polished but unsupported draft
-claims.
-
-Alternatives considered:
-
-- Let review proceed from whatever text retrieval returns.
-- Fall back silently to abstract-only review.
-- Fail weak evidence explicitly and record the failure.
-
-Consequence: The document processor now applies extraction quality checks.
-Weak, boilerplate-heavy, or insufficient evidence extraction is stored as an
-explicit document/review limitation.
-
-Reversal condition: A future review mode may allow abstract-only triage or
-watchlist decisions, but public deep-dive drafts should still require adequate
-full-text evidence.
-
-## 2026-06-05: Generate Benchmark Templates, Do Not Generate Gold Labels
-
-Decision: ETS4 may generate editable benchmark templates from a run, but accepted
-gold labels must be created by human editorial review.
-
-Context: The pilot validation roadmap requires a benchmark before real-provider
-work. A tool is useful to collect paper metadata and system context, but model
-or system defaults should not become accepted labels automatically.
-
-Alternatives considered:
-
-- Handwrite benchmark JSON from scratch.
-- Let ETS4 infer accepted labels from its own decisions.
-- Generate draft labels and require explicit human acceptance.
-
-Consequence: `ets4 benchmark-template` writes draft labels with
-`label_status: "needs_human_label"`. `ets4 evaluate` refuses those labels until
-they are marked `accepted`.
-
-Reversal condition: None for gold labels. Models may suggest labels, but
-accepted labels should remain human-owned.
-
-## 2026-06-05: Keep Runtime Outputs Out of Git
-
-Decision: SQLite databases, exports, benchmark templates under `exports/`, local
-feed configs, archives, and secrets are runtime artifacts and should stay out of
-version control.
-
-Context: Pilot runs generate databases, draft pages, archives, and benchmark
-templates. These can grow quickly and may contain local state or unpublished
-editorial work.
-
-Alternatives considered:
-
-- Commit pilot databases and generated drafts for reproducibility.
-- Keep source-controlled code and docs only, while archives remain local.
-
-Consequence: `data/`, `exports/`, local SQLite files, `config/feeds.toml`, and
-`.env` remain ignored. Reproducibility should come from manifests, source code,
-and explicit archive artifacts when intentionally shared.
-
-Reversal condition: A specific small fixture may be committed under `tests/` if
-it is curated, stable, non-sensitive, and needed for automated testing.
-
-## 2026-06-05: Publication Must Remain Human-Approved
-
-Decision: ETS4 should generate draft artifacts, not publish autonomously.
-
-Context: ETS4 is an editorial review assistant. Human review is required for
-paper selection, final claims, corrections, and website publication.
-
-Alternatives considered:
-
-- Automatically commit or publish generated drafts to the website repository.
-- Create local drafts or draft pull requests that require explicit approval.
-
-Consequence: Website integration is gated by pilot validation and should start
-with draft artifacts or draft pull requests only.
-
-Reversal condition: Do not reverse for public publication. Automation can be
-expanded for scheduling and draft preparation, but final publication should
-remain manually approved.
-
-## 2026-06-05: Treat Human Benchmark Labels as Calibration, Not Routine Production Work
-
-Decision: Human benchmark labeling is required for validation and regression
-testing, but it is not the intended per-issue production scoring workflow.
-
-Context: The legacy prototype expected LLM agents to score and evaluate papers
-directly. The current architecture keeps automated triage, review, scoring, and
-ranking, but adds human-owned benchmark labels so those automated judgments can
-be measured against an external editorial reference.
-
-Alternatives considered:
-
-- Require the human editor to label every production issue as benchmark data.
-- Let agents create accepted benchmark labels from their own judgments.
-- Use agents for routine scoring while keeping human labels for calibration,
-  regression testing, and provider or workflow comparisons.
-
-Consequence: In production, agents may score, triage, review, rank, and draft
-papers, subject to human editorial approval before publication. Human benchmark
-labels should be created periodically or when quality risk changes, such as
-after prompt changes, provider changes, source-mix changes, observed drift, or
-candidate workflow comparisons. Automated pipelines may run non-public stages,
-but must not mark generated labels as accepted.
-
-Reversal condition: None for accepted gold labels. The frequency and size of
-human benchmark updates can change as ETS4 matures, but accepted benchmark
-labels should remain externally human-owned.
-
-## 2026-06-07: Defer Agent-Visible Casebook Until Holdout Benchmarks Exist
-
-Decision: ETS4 may later use accepted human-labeled examples as an
-agent-visible casebook, but this should wait until there is enough labeled data
-to keep private holdout evaluation examples separate.
-
-Context: A growing benchmark can serve two purposes. It can measure ETS4 against
-human editorial judgment, and it can also provide past cases that help agents
-resolve uncertain triage or review decisions. These uses conflict if the same
-examples are both shown to agents and used as blind evaluation data.
-
-Alternatives considered:
-
-- Use all accepted labels only for evaluation.
-- Show all accepted labels to agents as examples.
-- Split accepted labels into agent-visible casebook examples and private
-  holdout examples.
-
-Consequence: The current pilot should first build the accepted benchmark and
-evaluate the baseline. Casebook retrieval should be considered only after the
-minimum benchmark targets are met: at least 100 labeled triage examples, 20
-full-review examples, hard negatives, high-value examples, and examples with
-weak or missing full text. If implemented, runs should log which prior cases
-were shown to agents.
-
-Reversal condition: If casebook retrieval creates label leakage, crowds out
-source evidence, or makes decisions harder to audit, keep accepted labels as
-evaluation-only artifacts.
+Revisit if: The package is published or the project remains private. Update the install path and remove release steps that no longer apply.

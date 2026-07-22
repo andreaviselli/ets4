@@ -1,0 +1,11 @@
+{
+  "stable_id": "ets4.final-editor.v1",
+  "version": "1.0.0",
+  "title": "ETS4 Final Editor",
+  "source_sha256": "c092ed843f1d3139f5956a90112e15540f82142455dd30c124b8e9f01fa4cc50",
+  "changes": [
+    "Canonicalized the supplied PDF prompt.",
+    "Parameterised the referee count.",
+    "Added an explicit untrusted-manuscript and no-tools boundary."
+  ]
+}
