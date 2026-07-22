@@ -1,0 +1,11 @@
+{
+  "stable_id": "ets4.referee.v1",
+  "version": "1.0.0",
+  "title": "ETS4 Independent Referee",
+  "source_sha256": "47f90a97eefe0255d04a30d99a7fc3290cfe3a32ab42afb0d1aa26f8897b8aa0",
+  "changes": [
+    "Canonicalized the illustrative supplied PDF prompt.",
+    "Replaced example persona fields with a typed rendering context.",
+    "Added an explicit untrusted-manuscript and no-tools boundary."
+  ]
+}

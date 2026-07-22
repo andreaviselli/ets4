@@ -1,0 +1,11 @@
+{
+  "stable_id": "ets4.initial-editor.v1",
+  "version": "1.1.0",
+  "title": "ETS4 Initial Editor",
+  "source_sha256": "37ebd396140235bdf45df17622fe5a2bb4c2d2af5726674ba2b9cd310e149350",
+  "template_sha256": "af284f124bfe22fdab3eb6e39807e3e6755e847e84db1b3b6b76b63134956c27",
+  "changes": [
+    "Preserved the complete version 1.0.0 editorial and security protocol.",
+    "Added the plain-English, informal, objective writing instruction."
+  ]
+}

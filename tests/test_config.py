@@ -1,14 +1,45 @@
+from __future__ import annotations
+
 from pathlib import Path
 
-from ets4.config import load_config
+import pytest
+
+from ets4.config import (
+    ConfigurationError,
+    ReviewSettings,
+    load_settings,
+    validate_provider_environment,
+)
 
 
-def test_load_example_config() -> None:
-    config = load_config(Path("config/feeds.example.toml"))
+def test_configuration_precedence_and_no_secret_persistence(tmp_path: Path) -> None:
+    config = tmp_path / "ets4.toml"
+    config.write_text(
+        "[review]\nreferee_count = 2\n[provider]\nprovider = 'mock'\nmodel = 'file-model'\n",
+        encoding="utf-8",
+    )
+    settings = load_settings(
+        config,
+        {"referee_count": 5},
+        {"ETS4_MODEL": "environment-model", "OPENAI_API_KEY": "sk-secret-value"},
+    )
+    assert settings.referee_count == 5
+    assert settings.model == "environment-model"
+    serialized = str(settings.manifest_dict())
+    assert "sk-secret-value" not in serialized
+    assert "OPENAI_API_KEY" not in serialized
 
-    assert config.issue.max_papers_to_full_review == 20
-    assert config.issue.max_deep_dive_drafts == 3
-    assert config.model_policy.provider == "fake"
-    assert len(config.sources) == 3
-    assert config.sources[0].id == "nep-for"
 
+def test_referee_count_cannot_exceed_configured_ceiling() -> None:
+    with pytest.raises(ValueError, match="exceeds"):
+        ReviewSettings(referee_count=9, max_referees=8)
+
+
+def test_openai_preflight_requires_environment_key() -> None:
+    with pytest.raises(ConfigurationError, match="OPENAI_API_KEY"):
+        validate_provider_environment(ReviewSettings(provider="openai"), environ={})
+
+
+def test_api_key_is_not_an_accepted_configuration_field() -> None:
+    with pytest.raises(ValueError):
+        ReviewSettings.model_validate({"provider": "openai", "api_key": "secret"})

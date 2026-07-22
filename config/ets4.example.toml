@@ -1,0 +1,25 @@
+[review]
+referee_count = 4
+max_referees = 8
+max_concurrency = 4
+max_provider_retries = 2
+max_repair_attempts = 1
+request_timeout_seconds = 600
+max_file_bytes = 52428800
+max_pdf_pages = 500
+min_text_characters = 200
+output_dir = "runs"
+
+[provider]
+provider = "mock"
+model = "gpt-5.6"
+model_context_tokens = 1000000
+max_output_tokens = 16000
+reasoning_effort = "high"
+pdf_detail = "high"
+store_provider_responses = false
+# openai_base_url = "https://api.openai.com/v1"
+
+[retention]
+# Raw prompts/responses may contain confidential manuscript content.
+retain_raw_responses = true

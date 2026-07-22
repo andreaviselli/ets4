@@ -1,186 +1,144 @@
 # ETS4
 
-ETS4 is an editorial review system for applied economic forecasting research.
-Its role is to collect candidate papers, run evidence-grounded editorial review,
-evaluate reviewer quality, and export human-reviewable draft pages for a
-practitioner/applied forecasting product in a separate publishing repository.
+ETS4 is an experimental, targeted academic-review system for manuscripts in economic time-series forecasting. It reads one complete manuscript, asks an initial editor to design a manuscript-specific artificial referee panel, runs the referees as operationally isolated model calls, and asks a final editor to synthesize the fixed panel into an editorial recommendation.
 
-## Current State
+ETS4 complements human peer review. It does not replace a human editor, establish research correctness, publish a manuscript, search for external information about authors or papers, or expose manuscript-processing tools to review agents.
 
-The repository currently contains:
+## Current interface
 
-- `src/ets4/`: the active ETS4 package and CLI implementation.
-- `docs/`: the target architecture, roadmap, review workflow, and evaluation design.
-- `config/feeds.example.toml`: a starter source configuration.
-- `data/` and `exports/`: ignored runtime working directories.
+The reliable interface is a local terminal application. A run accepts either a local PDF or a narrowly resolvable manuscript URL and creates an isolated, resumable run directory.
 
-For project handoff and future agent work, start with:
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[dev]"
+```
 
-- [docs/ETS4_STATE.md](docs/ETS4_STATE.md): current status, latest pilot state, known gaps, and next task.
-- [docs/ETS4_DECISION_LOG.md](docs/ETS4_DECISION_LOG.md): durable architectural and editorial decisions.
-- [AGENTS.md](AGENTS.md): operating rules for AI agents working on ETS4.
+Inspect the complete workflow without paid API calls:
 
-## Repository Direction
+```bash
+ets4 review manuscript.pdf \
+  --provider mock \
+  --referees 4 \
+  --output-dir ./runs
+```
 
-The target is a reproducible editorial system with these properties:
+Run a substantive OpenAI-backed experiment:
 
-1. Papers and model outputs are stored as auditable structured records.
-2. Reviews are grounded in cited source evidence, not free-form model impressions.
-3. Editorial decisions pass through explicit gates before publication.
-4. Prompt/model changes require evaluation against a labeled benchmark.
-5. Draft pages are exported in review mode and remain unpublished until approved.
+```bash
+export OPENAI_API_KEY=...
+ets4 review manuscript.pdf \
+  --provider openai \
+  --model gpt-5.6 \
+  --referees 4 \
+  --output-dir ./runs
+```
+
+URL input uses the same command:
+
+```bash
+ets4 review https://example.org/manuscript.pdf --provider openai --model gpt-5.6
+```
+
+The mock provider proves orchestration only. Its synthetic reports and recommendation are not manuscript judgments.
+
+## Configuration
+
+Precedence is:
+
+1. built-in safe defaults;
+2. a TOML file supplied with `--config`;
+3. `ETS4_*` environment variables;
+4. command-line overrides.
+
+Start from [`config/ets4.example.toml`](config/ets4.example.toml). API keys are accepted only through provider-standard server-side environment variables such as `OPENAI_API_KEY`; ETS4 deliberately has no API-key command-line option.
+
+The default panel has four referees. `--referees` accepts a positive count up to the configured `max_referees` ceiling. The default ceiling is eight and the hard implementation limit is twelve.
+
+Useful commands:
+
+```bash
+ets4 status RUN_ID --output-dir ./runs
+ets4 resume RUN_ID --output-dir ./runs
+ets4 cancel RUN_ID --output-dir ./runs
+ets4 validate-config --config config/ets4.toml
+ets4 providers
+```
+
+A partial provider failure exits with status 2 and leaves the run resumable. Successful paid stages are read from durable artifacts rather than repeated.
+
+## Run artifacts
+
+Each `runs/RUN_ID/` directory contains:
+
+```text
+run-manifest.json
+manuscript.pdf
+manuscript-metadata.json
+manuscript-pages.json
+initial-editor.json
+initial-editor.md
+referee-1.json
+referee-1.md
+...
+final-editor.json
+final-editor.md
+usage.json
+logs/events.jsonl
+logs/raw/                 # when raw retention is enabled
+```
+
+The manifest records the manuscript hash and source, deterministic input fingerprint, non-secret configuration, prompt versions, model identifiers, state transitions, attempts, usage, failures, and artifact checksums. It never records an API key or hidden model reasoning.
+
+## Manuscript handling and privacy
+
+Manuscripts and reports may be confidential. Local runs copy the original PDF and extracted text into the selected output directory. Raw model responses are retained by default for local audit and can be disabled with `--no-retain-raw-responses`.
+
+The OpenAI adapter sends the PDF inline to the Responses API, requests native PDF processing and validated Structured Outputs, supplies no model tools, and sets `store=false` by default. That setting does not eliminate all provider-side processing or abuse-monitoring retention. Review [`docs/DATA_AND_PRIVACY.md`](docs/DATA_AND_PRIVACY.md) before using confidential material.
+
+## Manuscript input boundary
+
+- Local inputs must be readable, unencrypted PDFs with extractable text.
+- URL fetching allows only public HTTP(S) addresses on ports 80/443, validates every redirect, limits bytes and time, and resolves only a direct PDF, arXiv abstract page, `citation_pdf_url`, or explicit `application/pdf` link.
+- ETS4 does not search for the paper, authors, reviews, publication status, publicity, or replication archives.
+- The original PDF is canonical. Every page is normalized for validation and page mapping; no page is silently truncated.
+- Scanned and unusually long PDFs can be supplied, but support is limited. A scan must already contain enough extractable text because ETS4 has no OCR; a fully image-only PDF fails before review.
+- A long manuscript proceeds only if the complete-PDF preflight estimates that it fits the configured model context. ETS4 fails clearly rather than silently truncating the paper or substituting a summary.
+
+## Architecture
+
+The application, not a model, controls editor/referee ordering, fan-out/fan-in, retries, persistence, and final-editor release. Referees receive the complete manuscript and only their own rendered profile. They never receive other profiles, reports, or editor reasoning.
+
+Prompt version `1.1.0` asks every editor and referee to write in plain English with an informal style while remaining objective. Final-editor issues are rendered as: where the issue applies, what is missing, why it matters, what needs to change, the editor's view, and one compact assessment line.
 
 See:
 
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- [docs/ETS4_STATE.md](docs/ETS4_STATE.md)
-- [docs/ETS4_DECISION_LOG.md](docs/ETS4_DECISION_LOG.md)
-- [docs/REVIEW_WORKFLOW.md](docs/REVIEW_WORKFLOW.md)
-- [docs/EVALUATION.md](docs/EVALUATION.md)
-- [docs/ROADMAP.md](docs/ROADMAP.md)
-- [docs/PILOT_VALIDATION.md](docs/PILOT_VALIDATION.md)
-- [AGENTS.md](AGENTS.md)
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+- [`docs/REVIEW_PROTOCOL.md`](docs/REVIEW_PROTOCOL.md)
+- [`docs/PROMPTS.md`](docs/PROMPTS.md)
+- [`docs/PROVIDERS.md`](docs/PROVIDERS.md)
+- [`docs/SECURITY.md`](docs/SECURITY.md)
+- [`docs/WEB_INTEGRATION.md`](docs/WEB_INTEGRATION.md)
 
-## Local Setup
+## Development and validation
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -e ".[dev,deepdive]"
+python -m pytest
+python -m ruff check src tests evals
+python -m mypy src/ets4 evals/build_case_pdf.py
+python -m py_compile $(find src/ets4 evals -name '*.py' -type f | sort)
+git diff --check
 ```
 
-Create a local `.env` file containing:
+Live-provider tests are never part of the default suite. Behavioral editorial evaluations live under `evals/` and are distinct from deterministic schema and orchestration tests. The scaffold includes a fixed synthetic forecasting manuscript source, a reproducible PDF builder, behavioral probes, and a versioned human-scoring rubric.
 
-```bash
-OPENAI_API_KEY=...
-```
+Two local OpenAI-backed reviews of real manuscripts have completed the full initial-editor, four-referee, final-editor, and rendering workflow with `gpt-5.6`. These runs provide practical end-to-end validation of the current interface; they do not guarantee that every PDF will pass input and context checks or that every model judgment will be correct.
 
-`.env` is ignored by Git.
+## Limitations
 
-## Phase 1 CLI
-
-The new package skeleton exposes an `ets4` command after installation.
-Initialize the database and create a manifest first:
-
-```bash
-ets4 init-db
-ets4 manifest --issue-date 2026-06-08
-```
-
-`manifest` prints a `run_id`. Later commands can continue the same auditable
-run by passing `--run-id`:
-
-```bash
-ets4 collect --dry-run --run-id run-example123
-ets4 triage --run-id run-example123
-ets4 select --run-id run-example123
-ets4 extract --run-id run-example123
-ets4 refresh-evidence --run-id run-example123
-ets4 review --run-id run-example123
-ets4 human-selection-template --run-id run-example123
-ets4 human-selection-apply --input exports/selection-reviews/run-example123.selection-review.json
-ets4 benchmark-template --run-id run-example123
-ets4 benchmark-status --labels path/to/benchmark.json
-ets4 evaluate --run-id run-example123 --labels path/to/benchmark.json --gate
-ets4 replay-baseline --source-run-id run-example123 --labels path/to/benchmark.json --errors --gate
-ets4 export --run-id run-example123
-ets4 archive --run-id run-example123
-```
-
-The default configuration is `config/feeds.example.toml`. Copy it to
-`config/feeds.toml` for local changes; the local config file is ignored by Git.
-Each `[[sources]]` entry controls one feed. For RSS sources, `lookback_days`
-sets how far back ETS4 looks from collection time when filtering feed entries.
-The example configuration currently uses 30 days for each starter source. Add
-or remove source entries in `config/feeds.toml` to change pilot coverage.
-
-The default model provider is `fake`, which is deterministic and suitable for
-offline development and tests.
-
-For evaluation-only real-provider experiments, copy `config/feeds.example.toml`
-to ignored `config/feeds.toml`, set `[model_policy].provider = "openai"`, set
-OpenAI model names, and provide `OPENAI_API_KEY` through the local environment
-or ignored `.env` file. The OpenAI provider uses structured JSON outputs behind
-the same triage/review interface as the fake provider. It is not the default,
-and provider adoption remains blocked until the pilot validation gate passes or
-the decision log records an explicit override.
-
-`triage` automatically applies the full-review paper budget after scoring
-candidates. `select` can be run separately to recompute full-review selection
-after configuration or human override changes.
-
-`extract` retrieves documents for selected full-review papers and stores
-page-preserving text plus evidence candidates. For one-off local review, pass an
-explicit paper and document:
-
-```bash
-ets4 extract --paper-id paper-1 --source path/to/paper.pdf
-```
-
-`refresh-evidence` rebuilds evidence items from already stored extracted pages,
-without refetching documents. Use it after evidence-kind rule changes to update
-an ignored local pilot database before replay/evaluation.
-
-`review` builds an evidence dossier from extracted evidence items, runs
-independent fake reviewer reports for relevance, methods, evidence,
-practitioner value, and transferability, then stores a handling-editor decision
-memo. It also writes budgeted `deep_dive_draft` and `short_mention` selections
-for human override before export. For one paper:
-
-```bash
-ets4 review --run-id run-example123 --paper-id paper-1
-```
-
-`human-selection-template` writes an ignored JSON review queue under
-`exports/selection-reviews/` after panel review. The file is prefilled with the
-agent's publication recommendation for each reviewed paper. The human editor
-sets each `human_review.status` to `accepted`, keeps or edits the final
-selection stage, editorial decision, and publication track, and adds a short
-note whenever the human decision deviates from the agent.
-
-```bash
-ets4 human-selection-template --run-id run-example123
-ets4 human-selection-apply --input exports/selection-reviews/run-example123.selection-review.json
-```
-
-Applying the file rewrites only the `deep_dive_draft` and `short_mention`
-selection rows and stores the human decisions in SQLite as a historical
-selection registry. It does not create accepted benchmark labels.
-
-`benchmark-template` creates a human-labeling JSON template from a completed
-run. By default it writes to `exports/benchmarks/{run_id}.benchmark-template.json`,
-which is ignored by Git. The template is intentionally not evaluable until the
-human editor fills the labels and sets each `label_status` to `accepted`.
-
-`benchmark-status` validates benchmark JSON, reports labels that are still draft
-or incomplete, emits accepted-label consistency warnings, reports benchmark
-coverage against the pilot targets, and can write a smaller copied subset for
-human editing. Add `--json` for a machine-readable status, warning, and coverage
-audit. It never fills labels or marks labels accepted.
-
-`evaluate` compares a completed run against an accepted labeled benchmark JSON
-file, stores aggregate and per-paper evaluation records in SQLite, and reports
-core triage, evidence, review, and selection metrics. The test fixture at
-`tests/fixtures/evaluation/benchmark.json` shows the expected label format.
-Add `--errors` to list per-paper mismatches between human labels and ETS4
-outputs and summarize failure types; `--json` includes the same error analysis
-in machine-readable form. Add `--gate` to report whether the benchmark and
-evaluation satisfy the documented real-provider adoption gate.
-
-`replay-baseline` creates a new evaluation-mode run from the papers triaged in
-an existing source run, using the current configured provider and any stored
-evidence already in SQLite. It does not recollect sources or publish artifacts.
-Pass `--labels` to evaluate the replay run immediately.
-
-`export` writes an issue-level draft page and companion internal notes under
-`exports/{issue_id}/`. Exported public pages always include `draft: true`.
-Generated files contain an ETS4 checksum marker, so reruns are idempotent and
-human-edited files are not overwritten unless `--force` is passed.
-
-`archive` creates a zip bundle containing the run manifest, run summary, and
-exported artifacts. `run-scheduled` executes the non-publishing scheduled draft
-pipeline and finishes by exporting and archiving:
-
-```bash
-ets4 run-scheduled --issue-date 2026-06-08
-```
+- LLM outputs remain stochastic; ETS4 records reproducibility inputs but does not promise byte-identical replay.
+- Schema validity does not establish the intellectual quality of a review.
+- The automated opt-in OpenAI smoke test covers only the initial-editor request. Full OpenAI workflows have also been run manually on two real manuscripts, but no formal behavioral-scoring exercise has been performed or is currently required.
+- The service layer is an isolated contract skeleton, not a deployable hosted backend.
+- Browser-side API keys are not implemented or recommended.
+- HTML and PDF export can be added later; Markdown and JSON are the required formats now.

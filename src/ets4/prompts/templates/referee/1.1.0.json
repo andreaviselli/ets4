@@ -1,0 +1,11 @@
+{
+  "stable_id": "ets4.referee.v1",
+  "version": "1.1.0",
+  "title": "ETS4 Independent Referee",
+  "source_sha256": "47f90a97eefe0255d04a30d99a7fc3290cfe3a32ab42afb0d1aa26f8897b8aa0",
+  "template_sha256": "90f13be14dac8e717d49ae80f7f5056a8709a7ab410cf7fe166c29a9631d11e5",
+  "changes": [
+    "Preserved the complete version 1.0.0 editorial and security protocol.",
+    "Added the plain-English, informal, objective writing instruction."
+  ]
+}

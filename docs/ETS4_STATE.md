@@ -1,277 +1,72 @@
-# ETS4 State
+# ETS4 state
 
-Last updated: 2026-06-23
+Last updated: 2026-07-22
 
-This file is the fast handoff note for future ETS4 work. Read it after the
-README and before making implementation changes.
+## Current milestone
 
-## Current Status
+ETS4 has been refactored from the archived applied-forecasting digest into the targeted manuscript-review system specified by the July 2026 implementation brief and four supplied PDF source documents.
 
-ETS4 has completed the seven implementation phases in `docs/ROADMAP.md` and is
-now in post-roadmap pilot validation.
+The former repository state is preserved at tag `archive/pre-targeted-review-2026-07-14` (commit `8d3be59`). Active implementation is on `codex/targeted-review-engine`.
 
-The active milestone is `docs/PILOT_VALIDATION.md`: validate the system on real
-sources, evaluate accepted practitioner/applied forecasting labels, and decide
-whether the next investment should be retrieval, review providers, benchmark
-expansion, or website integration.
+The local review workflow is operational. Two OpenAI-backed reviews of user-supplied real manuscripts have completed the full initial-editor, four-referee, final-editor, and rendering sequence. The user reports that both results worked well for their intended use.
 
-## Latest Implementation State
+## Implemented foundation
 
-- Package skeleton, CLI, config loading, run manifests, and SQLite schema exist.
-- Source registry and RSS collection are implemented.
-- Deduplication covers DOI, arXiv id, canonical URL, normalized title, and fuzzy
-  title matching.
-- Budgeted candidate selection exists for full review, deep-dive drafts, and
-  short mentions.
-- Evidence extraction supports local text, local PDFs, remote PDFs, arXiv
-  abstract-page to PDF resolution, and HTML landing-page PDF discovery.
-- Evidence quality gates reject weak extraction and HTML boilerplate before
-  review.
-- Evidence extraction now includes domain-specific benchmark kinds for
-  scenarios, judgement, structural breaks, Covid-19, volatility, and trading in
-  addition to the generic method/dataset/metric/baseline/code/limitation kinds.
-- The fake model provider is the deterministic baseline for triage, panel
-  review, and handling-editor decisions. It now distinguishes applied economic
-  forecasting signals from generic financial/time-series methods and caps
-  full-deep-dive decisions when applied forecasting fit is limited.
-- An OpenAI model provider exists behind the same provider interface for
-  evaluation-only experiments. It uses structured JSON outputs for triage,
-  independent reviewer reports, and handling-editor decisions, and records
-  provider token usage in SQLite when returned by the API. The committed default
-  remains `fake`.
-- OpenAI provider prompts now use the concise general editorial rubric: useful
-  applied forecasting application plus methodological novelty or a genuinely
-  interesting empirical angle. They intentionally avoid paper-specific or
-  method-name tuning.
-- Exports write draft Markdown and internal notes under ignored `exports/`.
-- `ets4 human-selection-template` writes an ignored JSON publication-selection
-  review queue after panel review, and `ets4 human-selection-apply` stores the
-  accepted human choices in SQLite while rewriting only the `deep_dive_draft`
-  and `short_mention` selection rows.
-- Archive bundles and run events are implemented for reproducibility.
-- `ets4 benchmark-template` creates human-editable benchmark JSON from a
-  completed run.
-- `ets4 benchmark-status` validates benchmark JSON, reports draft or incomplete
-  labels, emits accepted-label consistency warnings with human-resolution
-  suggestions, reports coverage against pilot benchmark targets, can print the
-  audit as JSON, and can write a smaller copied subset for human editing
-  without accepting or inventing labels.
-- `ets4 evaluate` rejects draft benchmark labels unless each label is marked
-  `label_status: "accepted"`.
-- Benchmark labels now include practitioner/applied rubric fields: audience
-  fit, application type, economic relevance, forecasting contribution,
-  publication track, and social hook potential.
-- `ets4 evaluate --errors` reports per-paper mismatches between accepted human
-  labels and ETS4 outputs for triage, category, editorial decisions, selection,
-  publication track, and required evidence coverage. `--json` includes the same
-  report in a `mismatches` array.
-- `ets4 evaluate --gate` and `ets4 replay-baseline --gate` report whether the
-  current benchmark/evaluation satisfies the real-provider adoption gate. Gate
-  failures are advisory output, not evaluation command failures.
-- `ets4 replay-baseline` creates a new evaluation-mode run from papers triaged
-  in an existing source run, reuses stored evidence, and can evaluate accepted
-  labels immediately. This supports deterministic baseline comparison without
-  recollecting sources.
-- `ets4 refresh-evidence` rebuilds evidence items from stored extracted pages
-  without refetching documents. Use it after evidence-kind rule changes before
-  replaying a baseline.
+- Local and remote manuscript PDF ingestion with content hashing, complete page-preserving text extraction, explicit unreadable/image-only failure, byte/page/time limits, constrained landing-page resolution, redirect validation, and SSRF checks.
+- Provider-neutral manuscript package containing the canonical PDF, metadata, and paginated text.
+- Versioned initial-editor, referee, and final-editor prompt templates with source hashes, typed contexts, count parameterization, manuscript prompt-injection boundaries, and a `1.1.0` plain-English, informal, objective writing instruction.
+- Strict-compatible Pydantic schemas for panel design, harmonized referee reports, structured final-editor issue presentation, and planned-versus-realized typed coverage cells.
+- Application-controlled durable state machine with isolated referee fan-out, configurable concurrency, bounded retry/repair, fan-in blocking, cancellation state, atomic artifacts, schema/runtime-bound input fingerprints, usage capture, and resume without repeating successful calls.
+- Deterministic mock provider for complete no-cost local and test execution.
+- OpenAI provider using the Responses API, Pydantic Structured Outputs, inline native PDF input, no model tools, explicit timeout, stage-specific model overrides, `store=false` by default, local strict-schema validation, and sanitized structured API diagnostics.
+- CLI commands: `review`, `resume`, `status`, `cancel`, `validate-config`, and `providers`.
+- JSON and Markdown run artifacts plus an isolated future service API contract.
+- Deterministic tests for core ingestion, schema, prompt, provider, workflow, security, persistence, and CLI behavior.
+- Versioned behavioral evaluation criteria plus a fixed synthetic forecasting manuscript, metadata, and reproducible PDF builder under `evals/`; live-provider evaluation is intentionally outside the default test suite.
 
-## Current Pilot Position
+## Current verification
 
-We are after the first real pilot run, after the first retrieval-quality
-correction loop, and after the first small human-labeled benchmark evaluation.
+Final implementation verification on Python 3.12.13:
 
-The last real pilot run used:
+- default `python -m pytest`: 46 passed and one opt-in live test skipped; only five third-party PyMuPDF SWIG deprecation warnings;
+- opt-in `tests/test_live_openai_stage1.py`: passed against `gpt-5.6` with OpenAI SDK `2.45.0`, the production `EditorPanelDesign` schema, and a small synthetic PDF;
+- `python -m ruff check src tests evals`: passed;
+- `python -m mypy src/ets4 evals/build_case_pdf.py`: passed;
+- exhaustive source and evaluation-script `py_compile`: passed;
+- wheel build and package-content inspection: passed, including all versioned prompt assets;
+- `git diff --check`: passed;
+- tracked documentation/source local-path and secret-pattern scans: passed; only documented credential placeholders are present.
 
-- run id: `run-960b75015cc3`
-- issue date: `2026-06-05`
-- database: ignored local runtime SQLite under `data/`
-- benchmark template: ignored local JSON under `exports/benchmarks/`
+An end-to-end mock CLI smoke review of the generated three-page synthetic case completed all stages as `run-40d1d747c7a2`, with four isolated referee artifacts and input fingerprint `27e23a81cc8afdca092b1a8406557d8c31a922b457f9cfaff8d4102ad257f843`. The generated PDF was deterministic across two builds in this environment with SHA-256 `0fa4de1833db57fd71071163b6a9430e978a1147a45b941f1888d35b8e9d41e1`. Smoke outputs were written outside the repository.
 
-Observed pilot outcome after retrieval improvements:
+Two local OpenAI runs on real manuscripts also completed every configured stage with four referees, `gpt-5.6`, prompt version `1.0.0`, and OpenAI SDK `2.45.0`: `run-0b756ca1200d` on 2026-07-14 and `run-f80d483ee1e0` on 2026-07-22. Their run manifests record `completed`, every expected stage, and no failed stages. This is practical end-to-end workflow evidence; it is not a claim that every manuscript or every model judgment will succeed.
 
-- collected candidates: 21
-- selected for full review: 10
-- usable PDF-backed reviewed papers: 9
-- remaining document failure: one `403 Forbidden` repository response
-- generated benchmark template papers: 21
-- accepted initial-subset benchmark labels: 6
+After the `1.1.0` prompt and issue-presentation update, a fresh four-referee mock review completed all stages with the new prompt versions and schema hash. Its final Markdown rendered the six agreed issue sections and compact assessment line. A wheel build also included all `1.0.0` and `1.1.0` prompt text and metadata assets.
 
-The remaining `403 Forbidden` failure is explicit and recoverable. It should not
-block benchmark labeling unless that source is editorially important.
+## Live adapter incident and recovery position
 
-## Latest Evaluation
+Run `run-746d588dcd6d` failed before Stage 1 output with OpenAI `BadRequestError`, status 400, code `invalid_json_schema`, parameter `text.format.schema`, and reproduced request ID `req_e85c08556ba742bdb67b7fd7a1fa8aad`. The exact server message and fields are now preserved in its event log and visible through `ets4 status`; no credential, header, manuscript content, request payload, or reasoning was logged.
 
-The first accepted benchmark subset was evaluated on 2026-06-22 and revised
-under the practitioner/applied forecasting rubric.
+The request's inline PDF encoding and fields match the official API form. The rejected schema used a dynamic-key coverage dictionary, which became schema-valued `additionalProperties`. It was replaced with strict-compatible typed coverage cells; output defaults were removed; and a regression gate rejects dynamic-key schemas locally before cost. At the time of that repair, the prompt templates remained at version `1.0.0` with no wording change.
 
-- labels file: `exports/benchmarks/run-960b75015cc3.initial-subset.json`
-- benchmark version: `run-960b75015cc3-human-v1-subset`
-- labeled papers: 6
-- triage decision accuracy: 0.5
-- triage category accuracy: 0.6667
-- selected-paper precision: 0.8
-- relevant-paper recall: 1.0
-- hard-negative false-positive rate: 0.0
-- required evidence-kind coverage: 0.3611
-- papers missing required evidence: 3
-- reviewer citation coverage: 1.0
-- invalid citation rate: 0.0
-- editorial decision accuracy: 0.1667
-- deep-dive selection accuracy: 0.3333
-- short-mention selection accuracy: 0.8333
-- publication-track accuracy: 0.1667
-- publication-track distribution: 2 applied notes, 4 rejects
-- latest evidence refresh: 9 documents refreshed, 3196 evidence items, 0 skips
-- benchmark-status warnings: 3 across 2 papers
-- benchmark coverage: 6/100 accepted labels, 3/20 full-review examples,
-  hard-negative/directly-relevant/transferable-method/weak-full-text coverage
-  targets met
-- latest deterministic replay run: `run-d89f0363fdd3`
-- latest replay evaluation run: `eval-c8a246642d17ab57`
-- replay triaged papers: 21
-- replay selected for full review: 9
-- replay reviewed papers: 9
-- replay review errors: 1
-- replay triage decision accuracy: 0.6667
-- replay triage category accuracy: 0.6667
-- replay selected-paper precision: 0.8
-- replay relevant-paper recall: 1.0
-- replay required evidence-kind coverage: 1.0
-- replay editorial decision accuracy: 0.6667
-- replay deep-dive selection accuracy: 0.8333
-- replay short-mention selection accuracy: 1.0
-- replay publication-track accuracy: 0.8333
-- replay per-paper mismatches: 8
-- provider gate status: not ready
-- provider gate failed checks: 4
-- provider gate blockers: benchmark warnings, 6/100 labeled papers, 3/20
-  full-review examples, editorial decision accuracy 0.6667/0.8
-- latest OpenAI provider replay run: `run-6d84b35b31a8`
-- latest OpenAI provider evaluation run: `eval-8eb803b982b09260`
-- OpenAI replay model config: `gpt-5.4-mini` for triage and review
-- OpenAI replay API usage: 75 calls, about 630k input tokens and 32k output
-  tokens; cost is not yet computed by ETS4, but this is roughly $0.62 at
-  current standard `gpt-5.4-mini` API pricing
-- OpenAI replay triaged papers: 21
-- OpenAI replay selected for full review: 19
-- OpenAI replay reviewed papers with decisions: 9
-- OpenAI replay unique missing-document review failures: 10
-- OpenAI replay triage decision accuracy: 0.5
-- OpenAI replay selected-paper precision: 0.8
-- OpenAI replay relevant-paper recall: 1.0
-- OpenAI replay required evidence-kind coverage: 1.0
-- OpenAI replay reviewer citation coverage: 1.0
-- OpenAI replay invalid citation rate: 0.0
-- OpenAI replay editorial decision accuracy: 0.3333
-- OpenAI replay deep-dive selection accuracy: 0.5
-- OpenAI replay publication-track accuracy: 0.1667
-- OpenAI replay per-paper mismatches: 19
-- OpenAI provider gate status: not ready
-- OpenAI provider gate failed checks: 5
-- OpenAI provider gate blockers: benchmark warnings, 6/100 labeled papers,
-  3/20 full-review examples, editorial decision accuracy 0.3333/0.8,
-  publication-track accuracy 0.1667/0.8
+The existing run must not be resumed. It predates structured-output schema hashes and OpenAI SDK provenance, and its Stage 1 request used the rejected schema. Current resume validation refuses it with `run structured-output schema provenance differs from this checkout; start a new run`. That failed run launched no referee calls; the two later runs listed above used the corrected schema and completed all four referee calls.
 
-Interpretation: the fake-provider baseline preserves citation validity on the
-accepted subset. After auditing overfitting risk, the fake provider no longer
-uses narrow rejection terms derived from individual accepted-subset papers. The
-less-tailored replay keeps evidence coverage, citation validity,
-hard-negative precision, and relevant recall strong, but it regresses
-triage/editorial accuracy on the tiny accepted subset. That is the preferred
-tradeoff: the fake provider should remain a stable conservative pipeline
-baseline, not a rule set optimized for a handful of labels. Evidence-kind
-coverage is now complete on the accepted subset after refreshing stored pages.
-The first OpenAI replay confirms that the real-provider interface works and
-that structured outputs can be evaluated, but it is not yet calibrated for the
-practitioner/applied product. The OpenAI provider overpromoted papers whose
-application value, novelty, or empirical angle was not strong enough for the
-main product, selected many papers without usable stored documents for full
-review, and routed too many papers into deep-dive publication tracks. The
-current result is still too small, label-warning-bound, and provider-accuracy
-limited for real-provider adoption or website integration. After this result,
-the OpenAI prompts were simplified around the general application-plus-novelty
-rubric, and replay-mode full-review selection was changed to require a
-successful stored document before spending review calls.
+OpenAI SDK parsed-response serialization now explicitly disables Pydantic serializer warnings. This removes the SDK generic-union warning emitted after a successfully validated stage while preserving the raw response used by the configured local audit-retention path.
 
-## Next Recommended Task
+## Known limitations
 
-Rerun the calibrated `gpt-5.4-mini` OpenAI replay and compare it against both
-the fake baseline and the first OpenAI replay.
+- Automated live-test coverage stops after the initial editor, although two manually launched OpenAI reviews have completed the full workflow on real manuscripts.
+- Scanned PDFs can be supplied, but ETS4 has no OCR and rejects a fully image-only manuscript that lacks sufficient extractable text.
+- Very long PDFs can be supplied, but conservative context preflight rejects a complete manuscript estimated not to fit; ETS4 never silently truncates it.
+- Raw response retention is local and file-based; hosted deployments require stronger per-user isolation, encryption, lifecycle jobs, and audit controls.
+- URL defense is implemented in application code, but a hosted service must also enforce network-layer egress policy to close DNS-rebinding and infrastructure-specific gaps.
+- Cancellation requests remain durable while a call is in flight and prevent subsequent stages. The already-running third-party HTTP request may finish because transport-level cancellation depends on provider SDK support and request timeout.
+- The API package defines contracts only. There is no deployable asynchronous service, authentication, upload service, or job queue.
+- Schema-valid output is not proof that every editorial judgment is correct. Formal human-scored behavioral evaluation remains available for future prompt or model changes but is deferred and is not the current next step.
+- Prompt `1.1.0` changes writing style and final-report presentation while preserving the substantive protocol. Its deterministic prompt, schema, rendering, and workflow tests pass; the two completed real-manuscript runs used `1.0.0`.
 
-Suggested scope:
+## Next recommended task
 
-- use the ignored local `config/feeds.toml` with `provider = "openai"` and
-  `gpt-5.4-mini`
-- run `replay-baseline` against `run-960b75015cc3` using the accepted subset
-  labels and `--errors --gate`
-- compare selected count, missing review outputs, deep-dive score scale,
-  editorial decision accuracy, and publication-track accuracy against
-  `run-d89f0363fdd3` and `run-6d84b35b31a8`
-- resolve accepted-label warnings where editorial decision, publication track,
-  category, or selection fields point in different directions
-- use `ets4 benchmark-status --json --labels ...` to inspect the exact warning
-  records and coverage gaps before changing ignored local labels
-- expand the accepted benchmark by at least 94 triage labels and 17 full-review
-  labels to reach the documented minimum provider-gate coverage target
-- preserve hard-negative false-positive rate 0, evidence coverage 1.0, and
-  citation validity on the accepted subset
-- keep accepted human labels as ignored local artifacts unless a curated test
-  fixture is intentionally created
-- do not adopt the real provider for scheduled or publication-facing runs until
-  evidence coverage, editorial accuracy, label warnings, and benchmark coverage
-  satisfy the provider gate or another explicit decision-log override exists
+Update the separate public website so that its ETS4 page describes the current targeted manuscript-review process and the local CLI accurately. This informational update does not require a hosted API.
 
-Suggested command pattern:
-
-```bash
-ets4 refresh-evidence --run-id run-960b75015cc3
-ets4 replay-baseline \
-  --source-run-id run-960b75015cc3 \
-  --labels exports/benchmarks/run-960b75015cc3.initial-subset.json \
-  --errors \
-  --gate
-```
-
-## Working Commands
-
-```bash
-ets4 init-db
-ets4 manifest --issue-date YYYY-MM-DD
-ets4 collect --run-id run-example123
-ets4 triage --run-id run-example123
-ets4 select --run-id run-example123
-ets4 extract --run-id run-example123
-ets4 refresh-evidence --run-id run-example123
-ets4 review --run-id run-example123
-ets4 benchmark-template --run-id run-example123
-ets4 benchmark-status --labels path/to/benchmark.json
-ets4 evaluate --run-id run-example123 --labels path/to/benchmark.json
-ets4 evaluate --run-id run-example123 --labels path/to/benchmark.json --gate
-ets4 export --run-id run-example123
-ets4 archive --run-id run-example123
-ets4 run-scheduled --issue-date YYYY-MM-DD
-```
-
-## Known Gaps
-
-- The OpenAI provider has been evaluated locally against the accepted subset,
-  but it is not calibrated enough for adoption.
-- A small accepted human benchmark subset exists locally, but no source-controlled
-  benchmark fixture has been curated from it.
-- No website-repository integration exists yet.
-- Human override workflow exists conceptually and through config controls, but
-  there is no dedicated interactive UI. Publication-selection review now exists
-  as a JSON file workflow rather than an app-like editor.
-- Draft quality and publication-readiness evaluation need real human labels.
-- Blocked repository retrieval may need source-specific fallback policy.
-
-## Quality Gate Before Committing
-
-Run:
-
-```bash
-python -m pytest
-python -m ruff check src tests
-python -m py_compile src/ets4/*.py src/ets4/store/*.py src/ets4/collect/*.py src/ets4/documents/*.py src/ets4/review/*.py src/ets4/evaluate/*.py src/ets4/export/*.py src/ets4/ops/*.py
-```
+Formal human-scored evaluation, a second provider adapter, OCR improvements, and a hosted asynchronous service are optional future work. Revisit them only if a concrete need arises, such as changing model/prompt behavior, supporting image-only manuscripts, validating cross-provider portability, or allowing website visitors to launch reviews.
