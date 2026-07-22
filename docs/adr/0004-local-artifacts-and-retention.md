@@ -1,19 +1,19 @@
-# ADR 0004: atomic local run artifacts and explicit raw retention
+# ADR 0004: local run files and clear raw-response retention
 
 Status: accepted on 2026-07-14.
 
 ## Context
 
-ETS4 must be inspectable, resumable, and auditable while manuscripts and model responses may be confidential. A database is unnecessary for the first single-user local interface.
+ETS4 must be easy to inspect and resume, while manuscripts and responses may be confidential. A database is unnecessary for the first single-user local tool.
 
 ## Decision
 
-Use one isolated directory per run. Persist the canonical manuscript, normalized pages, validated JSON, Markdown, usage, manifest, and minimal event log. Write stage artifacts atomically before manifest advancement. Store raw provider responses separately and make retention configurable; enable it by default only for the local profile.
+Use one directory per run. Save the original paper, page text, checked JSON, Markdown, usage, manifest, and a small event log. Finish each stage file before changing the manifest. Keep raw responses in a separate folder and let the user disable them; enable them by default only for local runs.
 
-## Consequences
+## Result
 
-Runs are portable and easy to inspect. Resume can recover an artifact written immediately before a process crash. Users are responsible for filesystem permissions and deletion. Hosted storage needs a distinct design.
+Runs are easy to inspect and move. Resume can find a stage file written just before a process stopped. Users control local permissions and deletion. Hosting needs a different storage design.
 
-## Reversal
+## Revisit if
 
-Move state to a transactional database/object store when multiple workers or users require locking, authorization, lifecycle jobs, and queries. Preserve the same exported run contract and checksums.
+Several workers or users need locking, access rules, automatic deletion, or database queries. Keep the same exported run files and checksums even if internal storage changes.

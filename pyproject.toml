@@ -8,6 +8,14 @@ version = "0.2.1"
 description = "Targeted multi-agent academic review for economic time-series forecasting."
 readme = "README.md"
 requires-python = ">=3.12"
+keywords = ["academic-review", "forecasting", "time-series"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
+]
 dependencies = [
     "beautifulsoup4>=4.12",
     "openai>=2.45,<3",
@@ -28,10 +36,15 @@ dev = [
 [project.scripts]
 ets4 = "ets4.cli:main"
 
+[project.urls]
+Repository = "https://github.com/andreaviselli/ets4"
+Issues = "https://github.com/andreaviselli/ets4/issues"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
+ets4 = ["py.typed"]
 "ets4.prompts" = ["templates/**/*.txt", "templates/**/*.json"]
 
 [tool.pytest.ini_options]

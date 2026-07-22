@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
 
 from ets4.cli import main
@@ -7,6 +9,18 @@ from ets4.config import ReviewSettings
 from ets4.providers.base import ProviderError, StageRequest
 from ets4.providers.mock import MockProvider
 from ets4.workflow.engine import ReviewWorkflow
+
+
+def test_package_module_exposes_cli_help() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "ets4", "--help"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "Targeted multi-agent academic review" in result.stdout
 
 
 class DetailedInitialFailureProvider(MockProvider):

@@ -1,81 +1,83 @@
 # Review protocol
 
-## Objective
+## Aim
 
-ETS4 produces automatic, specialized, targeted artificial referee reports for economic time-series forecasting manuscripts. It is an experiment intended to complement human review, not replace it.
+ETS4 produces specialized AI referee reports for economic time-series forecasting papers. It supports human review; it does not replace it.
 
-The protocol has one initial editor, a configured panel of operationally isolated referees, and one final editor synthesis. The initial and final editor calls represent the same logical editorial role through explicit artifact handoff; they do not share hidden session state.
+The process has one initial editor, a fixed panel of separate referees, and one final editor. The initial and final editor are the same logical role, linked by saved data rather than a hidden model session.
 
-Every editor and referee writes in plain English, avoids convoluted or unnecessarily technical language, and uses an informal style and tone while remaining objective.
+Every editor and referee is asked to write in plain English, avoid needless jargon, and use an informal but objective tone.
 
 ## Stage 1: initial editor
 
-Input: the complete canonical manuscript only.
+Input: only the complete manuscript.
 
-Output: `EditorPanelDesign` containing:
+Output: an `EditorPanelDesign` with:
 
-- five to eight principal components or claims;
-- the configured number of realistic, distinct profiles;
-- a planned coverage matrix using P, S, and Blank;
-- panel gaps and unavoidable overlap.
+- five to eight main components or claims that need review;
+- the requested number of distinct, realistic referee profiles;
+- a planned coverage table using P, S, and Blank;
+- remaining gaps and unavoidable overlap.
 
-Panel objectives are manuscript fit, coverage, vertical expertise, marginal contribution, limited redundancy, and realism. Diversity of background is used only when it improves coverage or reduces redundancy.
+The panel should fit the paper, cover its main claims, include deep expertise, and avoid duplicate roles. Background differences matter only when they improve coverage.
 
-Every profile contains a stable identifier, functional slot, research orientation, primary expertise, three to five specialist topics, broad audit mandate, unique panel contribution, and non-authority areas.
+Each profile has a stable ID, a role, a research viewpoint, main expertise, three to five specialist topics, a broad task for this paper, a unique contribution, and areas where the referee is not the main authority.
 
-Every requirement has at least one P. More than two P assignments are allowed only for a requirement explicitly marked as concerning validity of the central claim.
+Every review need has at least one P. More than two P assignments are allowed only for a need marked as part of the central claim.
 
-Stage 1 must not identify suspected errors, write review comments, prescribe checks or extensions, name real researchers, tell referees what conclusion to reach, or anticipate the final decision.
+The initial editor must not identify suspected errors, write review comments, prescribe checks, name real researchers, steer a referee toward a conclusion, or predict the final decision.
 
 ## Stage 2: independent referees
 
-Every profile creates one stateless provider call with:
+Each referee gets a new provider call containing:
 
 - the complete PDF;
-- common referee instructions;
-- only that profile and its neutral remit;
-- the `RefereeReport` schema.
+- the shared referee instructions;
+- only that referee's profile;
+- the `RefereeReport` output format.
 
-It receives no other profile, report, editor synthesis, shared mutable context, or tool. Operational independence does not claim statistical independence between outputs from the same model family.
+A referee gets no other profile, report, editor summary, shared conversation, or tool. Separate calls keep contexts apart, but outputs from the same model family may still have similar biases.
 
-Each report contains one of Accept, Minor revision, Major revision, or Reject; all seven harmonized answers; a neutral summary; overall assessment; prioritized major comments; limited minor comments; confidential editor comments; confidence; and ethical/integrity status.
+Each report includes one of Accept, Minor revision, Major revision, or Reject; answers to seven shared questions; a neutral summary; an overall view; ordered major comments; a short list of minor comments; private comments for the editor; confidence; and any ethics or integrity concern.
 
-The seven questions concern forecasting contribution, literature position, scientific soundness, forecasting evaluation, conclusions, limitations, and presentation/replication. Answers are limited to Yes, Mostly, Partly, No, and Not applicable.
+The seven questions cover the forecasting contribution, literature position, scientific soundness, forecast evaluation, conclusions, limitations, and presentation or replication. Answers are limited to Yes, Mostly, Partly, No, and Not applicable.
 
-Referees must not assume defect, force a preferred method, request unrelated extensions, invent references, or propose robustness exercises without naming the alternative explanation addressed. Reports should remain approximately two pages.
+Referees must not assume the paper is flawed, force their preferred method, request unrelated work, invent references, or ask for a robustness check without explaining the alternative cause it tests. Reports should stay near two pages.
 
 ## Stage 3: final editor
 
 Input:
 
 - the complete manuscript;
-- validated Stage 1 design and original matrix;
-- exactly all configured validated reports.
+- the checked Stage 1 design and original coverage table;
+- exactly all configured referee reports.
 
-Stage 1 explains intended coverage but is not another report or corroborating vote.
+Stage 1 explains why the panel was built. It is not another report or vote.
 
-The final editor begins with a neutral summary and assesses contribution and claim/evidence/conclusion alignment. Synthesis is organized by issue, not referee. Equivalent comments are merged without erasing materially different reasoning.
+The final editor starts with a neutral summary and checks whether the claims, evidence, and conclusions line up. The report is organized by issue, not by referee. Similar comments are merged without losing important differences in reasoning.
 
-Each principal issue records a short title, where it applies, what is missing, why it matters, what needs to change, the editor's adjudicated view, supporting referee reasoning, validity, centrality, severity, and correctability. The Markdown report presents the six reader-facing sections followed by one compact assessment line; referee-specific reasoning remains in structured JSON for audit. Panel status is explicitly separated into:
+Each main issue says where it applies, what is missing, why it matters, what should change, and what the editor concludes. A short line records panel status, validity, importance, severity, and whether the issue can be fixed. Referee-specific reasoning stays in JSON for audit.
 
-- consensus: convergent, separately articulated reasoning;
-- specialist contribution: supported reasoning from pertinent expertise;
-- disagreement: materially different assessments, resolved only when manuscript evidence permits.
+Panel status is kept separate:
 
-The editor does not vote, average, count recommendations, add an open-ended review, or introduce unrelated criticism.
+- consensus: several reports reach the same point through their own reasoning;
+- specialist contribution: a well-supported point from relevant expertise;
+- disagreement: reports differ in a meaningful way, resolved only when the manuscript supports a resolution.
 
-Final recommendation is exactly one of Accept, Minor revision, Major revision, Reject and resubmit, or Reject. It follows from contribution validity, issue severity and centrality, and feasibility of correction.
+The editor does not vote, average scores, count recommendations, add a new open-ended review, or invent unrelated criticism.
+
+The final recommendation is exactly one of Accept, Minor revision, Major revision, Reject and resubmit, or Reject. It follows from the contribution, the validity and importance of the issues, and whether they can be fixed.
 
 ## Coverage appendix
 
-For every original matrix cell, actual reasoning is classified as P, S, or Blank and rendered as planned-to-actual notation. Keyword occurrence is not substantive coverage.
+For every original table cell, actual reasoning is coded as P, S, or Blank and shown beside the plan. A matching keyword does not count as real coverage.
 
-The appendix records covered dimensions, under-coverage, unplanned contributions, excessive overlap, and functional differentiation. It diagnoses panel design only. It does not add reviewers, invent criticism, or change the recommendation merely because coverage was weak.
+The appendix notes what was covered, what was missed, useful unplanned work, too much overlap, and whether the referee roles stayed distinct. It assesses the panel only. It cannot add referees, invent criticism, or change the recommendation merely because coverage was weak.
 
-## Failure behavior
+## Failures
 
 - Inaccessible or incomplete manuscript: stop before model review.
-- Invalid Stage 1 output: bounded repair/retry, then `awaiting_retry`.
-- One failed referee: persist successful reports, block Stage 3, and resume only missing/failed work.
-- Invalid final coverage mapping: reject final output and require retry.
-- Explicit cancellation: persist `cancelled`; do not resume automatically.
+- Invalid Stage 1 output: make only the allowed repair and retry attempts, then wait for resume.
+- One failed referee: keep successful reports, block Stage 3, and resume only missing or failed work.
+- Invalid final coverage table: reject the final output and require a retry.
+- User cancellation: save `cancelled` and do not resume automatically.

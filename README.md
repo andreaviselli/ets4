@@ -1,20 +1,104 @@
 # ETS4
 
-ETS4 is an experimental, targeted academic-review system for manuscripts in economic time-series forecasting. It reads one complete manuscript, asks an initial editor to design a manuscript-specific artificial referee panel, runs the referees as operationally isolated model calls, and asks a final editor to synthesize the fixed panel into an editorial recommendation.
+ETS4 is an experimental AI review tool for economic time-series forecasting papers. It reads one complete manuscript, builds a paper-specific referee panel, runs each referee separately, and produces an editor's final report.
 
-ETS4 complements human peer review. It does not replace a human editor, establish research correctness, publish a manuscript, search for external information about authors or papers, or expose manuscript-processing tools to review agents.
+ETS4 supports human peer review. It does not replace an editor or prove that a paper is correct.
 
-## Current interface
+## How the review works
 
-The reliable interface is a local terminal application. A run accepts either a local PDF or a narrowly resolvable manuscript URL and creates an isolated, resumable run directory.
+1. The initial editor identifies five to eight main review needs and designs the requested referee panel.
+2. Each referee receives the full PDF and only their own profile. Referees cannot see one another's profiles or reports.
+3. The final editor runs only after every referee report has been checked and saved. It combines the issues, makes a recommendation, and compares planned with actual coverage.
+
+The Python workflow controls the order, retries, saved files, and referee separation. The models do not choose the next step or call tools.
+
+## Install from this repository
+
+ETS4 needs Python 3.12 or later. It is not yet published on PyPI. To install it directly from GitHub:
 
 ```bash
+python -m pip install "git+https://github.com/andreaviselli/ets4.git"
+```
+
+In Jupyter or IPython, use the kernel's `%pip` command, then restart the kernel if the imports are not immediately available:
+
+```python
+%pip install "git+https://github.com/andreaviselli/ets4.git"
+```
+
+You can instead clone the repository and install the local checkout:
+
+```bash
+git clone https://github.com/andreaviselli/ets4.git
+cd ets4
 python3.12 -m venv .venv
 source .venv/bin/activate
+python -m pip install .
+```
+
+This installs the `ets4` command. You can also use `python -m ets4`.
+
+For development, install the project in editable mode with its test tools:
+
+```bash
 python -m pip install -e ".[dev]"
 ```
 
-Inspect the complete workflow without paid API calls:
+The package and release work still needed before a public release is listed in [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md).
+
+## Use ETS4 from Python
+
+Start with the free mock provider. It runs the complete workflow but produces test reports rather than real manuscript judgments:
+
+```python
+from pathlib import Path
+
+from ets4.config import ReviewSettings
+from ets4.providers.factory import build_provider
+from ets4.workflow import ReviewWorkflow
+
+settings = ReviewSettings(
+    provider="mock",
+    referee_count=4,
+    output_dir=Path("runs"),
+)
+
+workflow = ReviewWorkflow(settings, build_provider(settings))
+result = workflow.start("manuscript.pdf")
+
+print(result.run_id)
+print(result.workflow_state.value)
+print(settings.output_dir / result.run_id / "final-editor.md")
+```
+
+For a real OpenAI review, set `OPENAI_API_KEY` in the environment before starting Python. Then use OpenAI settings with the same workflow:
+
+```python
+from pathlib import Path
+
+from ets4.config import ReviewSettings, validate_provider_environment
+from ets4.providers.factory import build_provider
+from ets4.workflow import ReviewWorkflow
+
+settings = ReviewSettings(
+    provider="openai",
+    model="gpt-5.6",
+    referee_count=4,
+    output_dir=Path("runs"),
+)
+
+validate_provider_environment(settings)
+result = ReviewWorkflow(settings, build_provider(settings)).start("manuscript.pdf")
+
+print(result.run_id)
+print(result.workflow_state.value)
+```
+
+A supported manuscript URL can replace `"manuscript.pdf"` in either example.
+
+## Try the workflow for free
+
+The mock provider checks the full workflow without API calls:
 
 ```bash
 ets4 review manuscript.pdf \
@@ -23,7 +107,11 @@ ets4 review manuscript.pdf \
   --output-dir ./runs
 ```
 
-Run a substantive OpenAI-backed experiment:
+Its reports are test data, not real judgments about the manuscript.
+
+## Run an OpenAI review
+
+Keep the API key in the process environment:
 
 ```bash
 export OPENAI_API_KEY=...
@@ -34,26 +122,11 @@ ets4 review manuscript.pdf \
   --output-dir ./runs
 ```
 
-URL input uses the same command:
+A supported URL can replace the local path:
 
 ```bash
 ets4 review https://example.org/manuscript.pdf --provider openai --model gpt-5.6
 ```
-
-The mock provider proves orchestration only. Its synthetic reports and recommendation are not manuscript judgments.
-
-## Configuration
-
-Precedence is:
-
-1. built-in safe defaults;
-2. a TOML file supplied with `--config`;
-3. `ETS4_*` environment variables;
-4. command-line overrides.
-
-Start from [`config/ets4.example.toml`](config/ets4.example.toml). API keys are accepted only through provider-standard server-side environment variables such as `OPENAI_API_KEY`; ETS4 deliberately has no API-key command-line option.
-
-The default panel has four referees. `--referees` accepts a positive count up to the configured `max_referees` ceiling. The default ceiling is eight and the hard implementation limit is twelve.
 
 Useful commands:
 
@@ -65,9 +138,22 @@ ets4 validate-config --config config/ets4.toml
 ets4 providers
 ```
 
-A partial provider failure exits with status 2 and leaves the run resumable. Successful paid stages are read from durable artifacts rather than repeated.
+A partial provider failure exits with status 2 and leaves the run ready to resume. ETS4 reuses completed stages instead of paying for them again.
 
-## Run artifacts
+## Configuration
+
+Settings are applied in this order:
+
+1. safe built-in defaults;
+2. a TOML file passed with `--config`;
+3. `ETS4_*` environment variables;
+4. command-line options.
+
+Copy [`config/ets4.example.toml`](config/ets4.example.toml) to the ignored path `config/ets4.toml` if you want a local config file. ETS4 accepts API keys only through provider environment variables such as `OPENAI_API_KEY`; there is no API-key command-line option.
+
+The default panel has four referees. `--referees` accepts a positive number up to `max_referees`. The default limit is eight and the hard limit is twelve.
+
+## Run files
 
 Each `runs/RUN_ID/` directory contains:
 
@@ -85,42 +171,40 @@ final-editor.json
 final-editor.md
 usage.json
 logs/events.jsonl
-logs/raw/                 # when raw retention is enabled
+logs/raw/                 # only populated when raw retention is enabled
 ```
 
-The manifest records the manuscript hash and source, deterministic input fingerprint, non-secret configuration, prompt versions, model identifiers, state transitions, attempts, usage, failures, and artifact checksums. It never records an API key or hidden model reasoning.
+The manifest records the manuscript hash and source, non-secret settings, prompt and model versions, stage progress, attempts, usage, failures, and file checksums. It never records an API key or hidden model reasoning.
 
-## Manuscript handling and privacy
+## Manuscripts and privacy
 
-Manuscripts and reports may be confidential. Local runs copy the original PDF and extracted text into the selected output directory. Raw model responses are retained by default for local audit and can be disabled with `--no-retain-raw-responses`.
+Manuscripts and reports may be confidential. Local runs copy the PDF and extracted text into the chosen output directory. Raw model responses are kept by default for local auditing; use `--no-retain-raw-responses` to disable that.
 
-The OpenAI adapter sends the PDF inline to the Responses API, requests native PDF processing and validated Structured Outputs, supplies no model tools, and sets `store=false` by default. That setting does not eliminate all provider-side processing or abuse-monitoring retention. Review [`docs/DATA_AND_PRIVACY.md`](docs/DATA_AND_PRIVACY.md) before using confidential material.
+The OpenAI adapter sends the PDF inline to the Responses API, asks for structured output, gives the model no tools, and sets `store=false` by default. This does not rule out all provider-side processing or safety retention. Read [`docs/DATA_AND_PRIVACY.md`](docs/DATA_AND_PRIVACY.md) before using confidential material.
 
-## Manuscript input boundary
+Input rules:
 
-- Local inputs must be readable, unencrypted PDFs with extractable text.
-- URL fetching allows only public HTTP(S) addresses on ports 80/443, validates every redirect, limits bytes and time, and resolves only a direct PDF, arXiv abstract page, `citation_pdf_url`, or explicit `application/pdf` link.
-- ETS4 does not search for the paper, authors, reviews, publication status, publicity, or replication archives.
-- The original PDF is canonical. Every page is normalized for validation and page mapping; no page is silently truncated.
-- Scanned and unusually long PDFs can be supplied, but support is limited. A scan must already contain enough extractable text because ETS4 has no OCR; a fully image-only PDF fails before review.
-- A long manuscript proceeds only if the complete-PDF preflight estimates that it fits the configured model context. ETS4 fails clearly rather than silently truncating the paper or substituting a summary.
+- Local files must be readable, unencrypted PDFs with enough extractable text.
+- URL fetching accepts only public HTTP(S) addresses on ports 80 and 443. Every redirect is checked, and download size and time are limited.
+- ETS4 accepts a direct PDF, an arXiv abstract page, `citation_pdf_url`, or an explicit `application/pdf` link. It does not search for papers.
+- The original PDF is kept unchanged. Every page is read; ETS4 never silently shortens the paper or replaces it with a summary.
+- There is no OCR. A fully image-only PDF fails before review.
+- A long paper proceeds only when the full PDF is estimated to fit the configured model context.
 
-## Architecture
+## Documentation
 
-The application, not a model, controls editor/referee ordering, fan-out/fan-in, retries, persistence, and final-editor release. Referees receive the complete manuscript and only their own rendered profile. They never receive other profiles, reports, or editor reasoning.
+Start with the [`docs` guide](docs/README.md). The main references are:
 
-Prompt version `1.1.0` asks every editor and referee to write in plain English with an informal style while remaining objective. Final-editor issues are rendered as: where the issue applies, what is missing, why it matters, what needs to change, the editor's view, and one compact assessment line.
+- [`docs/REVIEW_PROTOCOL.md`](docs/REVIEW_PROTOCOL.md) — what each review stage may do;
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — how the code and saved state fit together;
+- [`docs/SECURITY.md`](docs/SECURITY.md) — trust boundaries and URL/file controls;
+- [`docs/PROMPTS.md`](docs/PROMPTS.md) — prompt versions and change rules;
+- [`docs/PROVIDERS.md`](docs/PROVIDERS.md) — mock and OpenAI adapters;
+- [`docs/ETS4_STATE.md`](docs/ETS4_STATE.md) — current status and known limits.
 
-See:
+The public website lives in the separate `andreaviselli.github.io` repository.
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-- [`docs/REVIEW_PROTOCOL.md`](docs/REVIEW_PROTOCOL.md)
-- [`docs/PROMPTS.md`](docs/PROMPTS.md)
-- [`docs/PROVIDERS.md`](docs/PROVIDERS.md)
-- [`docs/SECURITY.md`](docs/SECURITY.md)
-- [`docs/WEB_INTEGRATION.md`](docs/WEB_INTEGRATION.md)
-
-## Development and validation
+## Development checks
 
 ```bash
 python -m pytest
@@ -130,15 +214,12 @@ python -m py_compile $(find src/ets4 evals -name '*.py' -type f | sort)
 git diff --check
 ```
 
-Live-provider tests are never part of the default suite. Behavioral editorial evaluations live under `evals/` and are distinct from deterministic schema and orchestration tests. The scaffold includes a fixed synthetic forecasting manuscript source, a reproducible PDF builder, behavioral probes, and a versioned human-scoring rubric.
+Live provider tests are optional and off by default. The `evals/` directory contains a fixed synthetic paper and a human scoring guide; it is separate from the normal test suite.
 
-Two local OpenAI-backed reviews of real manuscripts have completed the full initial-editor, four-referee, final-editor, and rendering workflow with `gpt-5.6`. These runs provide practical end-to-end validation of the current interface; they do not guarantee that every PDF will pass input and context checks or that every model judgment will be correct.
+## Current limits
 
-## Limitations
-
-- LLM outputs remain stochastic; ETS4 records reproducibility inputs but does not promise byte-identical replay.
-- Schema validity does not establish the intellectual quality of a review.
-- The automated opt-in OpenAI smoke test covers only the initial-editor request. Full OpenAI workflows have also been run manually on two real manuscripts, but no formal behavioral-scoring exercise has been performed or is currently required.
-- The service layer is an isolated contract skeleton, not a deployable hosted backend.
-- Browser-side API keys are not implemented or recommended.
-- HTML and PDF export can be added later; Markdown and JSON are the required formats now.
+- Model output varies between runs. Recorded settings help comparison but do not promise identical output.
+- Valid JSON does not prove that a review is intellectually sound.
+- The automated live test covers only the initial editor. Two full OpenAI reviews have also completed manually, but that does not guarantee success for every PDF or judgment.
+- `src/ets4/api/` contains future API shapes only. There is no hosted service, login, upload system, or job queue.
+- Markdown and JSON are the supported report formats.

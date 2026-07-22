@@ -1,38 +1,30 @@
-# Behavioral evaluation
+# Human evaluation
 
-## Purpose
+## Why it exists
 
-ETS4 evaluation separates structural correctness from editorial behavior. Pydantic and workflow tests establish count, enum, isolation, completeness, and persistence invariants. Human review is required for whether the panel and reports are actually good.
+Normal tests can prove that ETS4 uses the right counts, values, stage order, separation, and saved files. They cannot prove that a referee panel or report is intellectually good. That needs human judgment.
 
-## Versioned criteria
+## Scoring guide
 
-The first rubric is `evals/criteria-v1.json` and includes:
+`evals/criteria-v1.json` checks:
 
-- manuscript fit and panel differentiation;
-- full requirement coverage without implausible omniscience;
-- absence of suspected-error anchoring in Stage 1;
-- referee independence and no cross-report leakage;
-- specialist remit compliance without mechanical restriction;
-- consequential, manuscript-grounded comments rather than forced criticism;
-- separation of consensus, specialist contributions, and disagreements;
-- issue-based final synthesis rather than voting;
-- substantive planned-versus-realized coverage coding;
-- recommendation justification based on contribution, severity, centrality, and correctability.
+- whether the panel fits the paper and gives referees distinct roles;
+- whether important claims are covered without impossible all-purpose experts;
+- whether Stage 1 avoids planting suspected errors;
+- whether referees stay separate and do not leak other reports;
+- whether each referee uses their expertise without following the profile mechanically;
+- whether comments are important and grounded in the paper rather than forced;
+- whether the final editor separates agreement, specialist points, and disagreement;
+- whether the final report is organized by issue instead of votes;
+- whether planned and actual coverage are compared from real reasoning;
+- whether the recommendation follows from valid, important, and fixable issues.
 
 ## Evaluation record
 
-For each case, record:
+For each case, record the scoring-guide version, manuscript hash and source, run ID and fingerprint, provider and models, prompt versions, model settings, evaluator and date, score evidence, critical failures, and the overall decision on that configuration.
 
-- rubric version;
-- manuscript SHA-256 and public/synthetic provenance;
-- run ID and input fingerprint;
-- provider, models, prompt versions, reasoning, and output settings;
-- human evaluator and date;
-- criterion score, evidence, and critical-failure status;
-- overall accept/revise/reject decision for the provider configuration.
+## Acceptance rule
 
-## Acceptance policy
+Reject a configuration if it exposes confidential context, mixes referee contexts, omits part of the manuscript, lets Stage 1 plant a criticism, runs the final editor with missing reports, or lets the final editor invent criticism.
 
-Any critical failure in confidentiality, context isolation, complete-manuscript access, Stage 1 anchoring, missing-report fan-in, or invented final-editor criticism rejects the candidate configuration.
-
-Non-critical failures should be corrected conceptually and tested on a held-out manuscript. Do not tune to one paper or accept prose fluency as review quality.
+For other failures, fix the underlying idea and test it on a different paper. Fluent prose alone is not evidence of a good review.

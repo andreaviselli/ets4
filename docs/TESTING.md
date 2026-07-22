@@ -1,6 +1,6 @@
 # Testing
 
-## Deterministic suite
+## Normal test suite
 
 Run:
 
@@ -8,25 +8,25 @@ Run:
 python -m pytest
 ```
 
-The suite uses temporary synthetic PDFs and mocked provider/network responses. It covers:
+The suite uses temporary synthetic PDFs and mocked network or provider responses. It covers:
 
-- local PDF and URL ingestion;
-- narrow landing-page resolution and private-address rejection;
-- unreadable and image-only failures;
-- prompt-injection data separation;
-- panel count and coverage validation;
-- harmonized answer and recommendation enums;
-- typed dynamic prompt rendering;
-- OpenAI Responses/native-PDF payload construction;
-- strict Structured Outputs compatibility and non-retryable sanitized `BadRequestError` diagnostics;
-- configurable concurrent isolated referees;
-- partial-referee failure and final-editor blocking;
-- resume without repeated successful calls;
-- planned-versus-realized coverage integrity;
-- raw-retention switches, secret redaction, artifacts, and CLI behavior;
-- complete mock-provider end-to-end execution at default and non-default counts.
+- local and URL PDF input;
+- safe landing-page links and rejection of private addresses;
+- broken and image-only files;
+- separation of manuscript data from prompts;
+- panel counts and coverage rules;
+- allowed answers and recommendations;
+- prompt variables and packaged prompt versions;
+- OpenAI PDF requests and structured output;
+- safe handling of OpenAI schema and API errors;
+- separate parallel referee calls;
+- partial failure, blocked final editing, and resume;
+- planned versus actual coverage;
+- raw-response settings, secret hiding, run files, and CLI commands;
+- full mock reviews at default and non-default panel sizes;
+- both `ets4` and `python -m ets4` entry points.
 
-## Static validation
+## Static checks
 
 ```bash
 python -m ruff check src tests evals
@@ -35,31 +35,26 @@ python -m py_compile $(find src/ets4 evals -name '*.py' -type f | sort)
 git diff --check
 ```
 
-Use Python 3.12 for release validation. Compatibility with older local interpreters is not a supported package guarantee.
+Use Python 3.12 for release checks. Older Python versions are not supported.
 
-## Behavioral evaluations
+## Human evaluation
 
-Schema tests cannot prove intellectual quality. `evals/criteria-v1.json` defines versioned human-review criteria for panel fit/differentiation, Stage 1 non-anchoring, referee independence and remit behavior, final synthesis categories, and realized coverage. `evals/cases/synthetic_forecast_combination_v1.md` and its metadata provide a fixed behavioral case; `evals/build_case_pdf.py` creates its complete PDF input.
+Schema tests cannot judge intellectual quality. `evals/criteria-v1.json` scores panel fit, referee separation and role use, Stage 1 neutrality, final issue handling, and actual coverage. The fixed synthetic case lives in `evals/cases/`, and `evals/build_case_pdf.py` turns it into a PDF.
 
-Behavioral evaluations use public or synthetic manuscripts and stored artifacts. They are not default unit tests and should never require a live provider in CI. Record provider/model, prompt versions, reasoning/output settings, manuscript hash, evaluator, rubric version, and results.
+Human checks use public or synthetic manuscripts and saved run files. They are not normal unit tests and must not require a live provider in CI. Record all settings, prompt versions, manuscript hash, evaluator, scoring-guide version, evidence, and result.
 
-## Live providers
+## Live provider test
 
-Live tests must:
+A live test must be marked `live`, stay off by default, require an environment key, state its maximum calls or cost, use an approved public or synthetic paper, and write only ignored run output.
 
-- use an explicit `live` marker;
-- be disabled by default;
-- require environment credentials;
-- show expected maximum calls/cost before execution;
-- use authorized public or synthetic manuscripts;
-- write only ignored run artifacts.
-
-No deterministic test may depend on a live API response.
-
-The Stage 1 transport smoke test makes exactly one paid initial-editor request, uses `gpt-5.6`, a small synthetic PDF, two requested profiles, and the production `EditorPanelDesign` schema. It cannot create referee jobs:
+The current OpenAI smoke test makes one paid initial-editor call with a small synthetic PDF and cannot start referees:
 
 ```bash
 export OPENAI_API_KEY=...
 ETS4_RUN_LIVE_OPENAI=1 python -m pytest \
   tests/test_live_openai_stage1.py -v
 ```
+
+## Built-package test
+
+Before release, build the wheel and source archive, inspect their file lists, install the wheel in a clean Python 3.12 environment, and run both CLI entry points plus a mock review from outside the checkout. The full checklist is in [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).

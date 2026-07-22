@@ -1,35 +1,34 @@
 # Model providers
 
-## Provider contract
+## Provider interface
 
-A provider implements:
+A provider must:
 
-- explicit capability description;
-- preflight against the complete normalized manuscript;
-- one isolated structured generation call;
-- retryability classification;
-- response ID, raw response, and usage metadata when available.
+- describe the features it supports;
+- check the full manuscript before any paid call;
+- make one separate call that returns checked structured data;
+- say whether an error can be retried;
+- return a response ID, raw response, and usage when available.
 
-The workflow does not import provider SDK types.
+The workflow never imports provider SDK types.
 
 ## Mock
 
-`mock` is deterministic, offline, and free. It generates valid panels, reports, final synthesis, and coverage for orchestration tests. Its prose explicitly states that it is not a substantive manuscript assessment.
+`mock` is repeatable, offline, and free. It creates valid panels, reports, final output, and coverage so the workflow can be tested. Its text clearly says it is not a real manuscript review.
 
 ## OpenAI
 
-`openai` is the first substantive adapter. It uses:
+`openai` uses:
 
 - the official Python SDK;
-- Responses API `client.responses.parse`;
+- the Responses API through `client.responses.parse`;
 - Pydantic Structured Outputs;
-- an inline base64 PDF `input_file` with configurable detail;
-- the complete PDF in every stage call;
-- `store=false` unless explicitly changed;
+- the complete PDF as an inline base64 `input_file`;
+- `store=false` unless the user changes it;
 - no tools, web search, file search, shell, or code execution;
-- explicit timeout and zero SDK-internal retries, leaving bounded retry to the orchestrator.
-- a local strict-schema compatibility gate that rejects defaults, missing required fields, and dynamic-key objects before a paid request;
-- sanitized API failure metadata (`message`, `code`, `parameter`, HTTP status, and request ID) without headers or request bodies.
+- a set timeout and no hidden SDK retries;
+- a local check that rejects unsupported output shapes before a paid request;
+- short, secret-safe API error details.
 
 Official references:
 
@@ -37,27 +36,27 @@ Official references:
 - [File inputs](https://developers.openai.com/api/docs/guides/file-inputs)
 - [Data controls](https://developers.openai.com/api/docs/guides/your-data)
 
-The current official file-input guide says vision-capable models receive both extracted PDF text and page images. The structured-output guide documents Python Pydantic parsing through the Responses API. These are consequential external assumptions and are recorded in ADR 0003.
+The file guide says capable models receive both extracted PDF text and page images. The output guide describes Pydantic parsing through the Responses API. ADR 0003 records why ETS4 relies on these features.
 
-Live request validation on 2026-07-14 used OpenAI Python SDK `2.45.0` and `gpt-5.6`. It confirmed the documented inline PDF fields and exposed an invalid strict schema caused by dynamic-key coverage dictionaries. Coverage now uses typed cell arrays. The opt-in small-PDF initial-editor smoke test passes with the actual `EditorPanelDesign` schema. Separately, two manually launched reviews of real manuscripts completed the full three-stage OpenAI workflow with four referees. Those runs validate end-to-end operation for their inputs, not universal editorial quality.
+A live check on 2026-07-14 used OpenAI SDK `2.45.0` and `gpt-5.6`. It found that open-ended coverage dictionaries were rejected by strict output validation, so ETS4 now sends typed cell arrays and checks them locally. The one-call Stage 1 smoke test passes. Two separate real-manuscript runs also completed all three stages with four referees. These runs prove the path worked for those inputs, not that every model judgment will be good.
 
-Set credentials only in `OPENAI_API_KEY`. Model selection is configuration, not source code. Stage-specific overrides are available for the initial editor, referees, and final editor.
+Set credentials only in `OPENAI_API_KEY`. Models are settings, not hard-coded choices, and each stage can use its own model override.
 
-## Optional: adding another provider
+## Adding another provider
 
-A second provider is not required for current local OpenAI use. Add one only if cross-provider portability or a specific provider capability becomes a real project goal.
+Add a provider only when there is a real need for another service or feature.
 
-1. Implement `Provider` in a new `src/ets4/providers/<name>.py` module.
-2. Declare native PDF, structured-output, text-fallback, reasoning, and storage-control capabilities accurately.
-3. Reject incomplete-manuscript or unsupported-schema runs in `preflight` before cost.
-4. Map only provider-specific transport and errors; return the same validated domain models.
-5. Keep each `generate` call stateless and tool-free.
-6. Add construction to the factory and capability listing.
-7. Add mocked adapter tests plus the existing end-to-end workflow suite.
-8. Document context windows, file support, retention, compatibility limits, and required environment variables.
+1. Implement `Provider` in `src/ets4/providers/<name>.py`.
+2. Describe PDF, structured-output, text fallback, reasoning, and storage controls accurately.
+3. Reject unsupported full manuscripts or output formats before cost.
+4. Keep transport and error handling inside the adapter; return the shared ETS4 models.
+5. Keep every call separate and tool-free.
+6. Add it to the factory and provider list.
+7. Add mocked adapter tests and run the full mock workflow tests.
+8. Document context limits, PDF support, retention, compatibility, and environment variables.
 
-Do not label an adapter "OpenAI-compatible" merely because it accepts a model name and key. Verify response format, file input, schema support, error types, timeouts, base URL semantics, and retention.
+Do not call an adapter “OpenAI-compatible” based only on a model name and key. Check its response format, PDF input, strict output support, errors, timeouts, base URL, and retention.
 
-## Capability preflight
+## Full-manuscript check
 
-The current OpenAI adapter uses a conservative text-plus-page estimate against configured context and output limits. Future adapters should use maintained model-specific capability data. No adapter may silently truncate or replace the complete manuscript with a summary.
+The OpenAI adapter makes a cautious estimate for PDF text and pages, then compares it with the configured context and output limits. Future adapters should keep model-specific limits current. No provider may silently shorten the paper or replace it with a summary.

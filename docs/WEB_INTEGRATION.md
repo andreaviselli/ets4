@@ -1,60 +1,58 @@
-# Website integration assessment
+# Website options
 
-The public page belongs to the separate `andreaviselli.github.io` repository. This repository must not contain or publish that website.
+The public page lives in the separate `andreaviselli.github.io` repository. This repository must not contain or publish that website.
 
-## Option A: local-only execution
+## Option A: keep reviews local
 
-Advantages:
+Benefits:
 
-- simplest security and operating model;
-- manuscripts and artifacts stay on the user's machine except provider processing;
-- no central upload/authentication/abuse surface;
-- run directories are directly auditable and reproducible.
+- simplest security and support model;
+- papers and reports stay on the user's machine except for provider processing;
+- no central upload, login, or abuse risk;
+- run directories are easy to inspect and move.
 
 Costs:
 
-- Python installation and terminal use;
-- users manage provider keys, local permissions, deletion, and costs;
-- no browser progress interface.
+- users need Python and a terminal;
+- users manage their key, files, deletion, and provider costs;
+- there is no browser progress screen.
 
-This is the recommended current deployment.
+This is the supported option today.
 
-## Option B: website plus hosted ETS4 backend
+## Option B: website with a hosted backend
 
-The website uploads a manuscript or submits a permitted URL and non-secret settings to a separate authenticated HTTPS API. The backend creates an asynchronous job, stores private artifacts, runs ETS4 workers with server-side provider keys, and exposes authorized status/resume/artifact endpoints.
+The website would send a paper or approved URL and non-secret settings to a separate HTTPS service. That service would create a background job, keep private files, run ETS4 with server-side keys, and expose protected status, resume, cancel, and download endpoints.
 
-Required controls:
+It would need:
 
-- authenticated users and per-run authorization;
-- upload and total-storage limits;
-- private encrypted object storage;
-- asynchronous queue, retries, cancellation, and worker isolation;
-- server-side provider credentials and per-user cost quotas;
-- malware scanning, SSRF-resistant egress, rate limits, and abuse prevention;
-- documented retention/deletion and provider-processing policy;
-- no public artifact URLs;
-- audit events and operational monitoring.
+- login and access checks for every run;
+- file and storage limits;
+- encrypted private storage;
+- a background queue, retries, cancellation, and separate workers;
+- server-side provider keys and per-user budgets;
+- malware scanning, private-address blocking, rate limits, and abuse controls;
+- clear retention and provider-processing rules;
+- no public report links;
+- audit records and service monitoring.
 
-Advantages are accessibility and centralized maintenance. Costs are substantial hosting, security, privacy, abuse, and support responsibility.
+This would be easier for users but much harder to operate safely.
 
-## Option C: browser bring-your-own-key
+## Option C: bring a key in the browser
 
-This is not recommended or implemented. It depends on provider-supported browser origins and CORS, exposes a high-value key and confidential PDF to page scripts, extensions, browser memory/storage, developer tools, crash logs, and supply-chain dependencies, and complicates large uploads and long-running calls.
+This is not recommended or implemented. A browser key and PDF can be exposed to page scripts, extensions, browser storage, developer tools, crash logs, and third-party dependencies. Long model calls and large uploads also fit poorly in a browser-only design.
 
-If investigated experimentally, the key must be ephemeral, never persisted by default, never sent to the website server, and used only when the provider explicitly supports the browser model. Those measures do not remove manuscript confidentiality or extension/script risk.
+Even an experimental version would need an expiring key, no default persistence, no key transfer to the website server, and explicit browser support from the provider. Those steps do not remove the privacy risk.
 
-## Recommended staged plan
+## Recommended order
 
-1. keep the reliable local CLI as the current review interface;
-2. update the informational ETS4 page in `andreaviselli.github.io` now so it describes the targeted review process rather than the archived digest;
-3. build a separate asynchronous API only if website visitors should be able to launch reviews;
-4. if that interactive service is pursued, complete its security and privacy design before connecting the website through the versioned API contract.
+1. Keep the packaged local CLI as the review interface.
+2. Update the public information page so it describes the current three-stage process.
+3. Build a separate background API only if users need browser-launched reviews.
+4. Finish its security and privacy design before connecting the website.
 
-Formal human scoring and a second provider are optional future work, not prerequisites for correcting the public page or continuing local reviews.
+Human scoring and a second provider are optional. They do not block a correct information page or local use.
 
-## Proposed API contract
-
-Future endpoints:
+## Possible API
 
 ```text
 POST /v1/reviews
@@ -65,8 +63,8 @@ GET  /v1/reviews/{run_id}/artifacts
 GET  /v1/providers
 ```
 
-`POST /v1/reviews` accepts one server-issued upload token or one permitted manuscript URL, provider/model selection, and referee count. It returns `202 Accepted`, `run_id`, and a status URL. It never accepts a provider API key from the browser contract.
+`POST /v1/reviews` would accept either a server-issued upload token or an approved manuscript URL, plus provider, model, and panel size. It would return `202 Accepted`, a run ID, and a status URL. It must never accept a provider key from browser code.
 
-Status returns workflow state, completed/failed stages, and resumability. Artifact listing returns short-lived authorized download URLs plus media type and checksum. Website code consumes JSON over HTTPS and does not import the ETS4 Python package.
+Status would show progress and whether the run can resume. The file list would return short-lived protected links with media type and checksum. Website code would use JSON over HTTPS and never import the ETS4 Python package.
 
-Schemas are represented in `src/ets4/api/contracts.py`. Authentication, upload tokens, HTTP implementation, and worker queue are intentionally deferred rather than presented as functional.
+`src/ets4/api/contracts.py` holds early data shapes only. Login, uploads, HTTP routes, and workers are not built.

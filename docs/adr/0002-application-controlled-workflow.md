@@ -1,19 +1,19 @@
-# ADR 0002: application-controlled stateless agent orchestration
+# ADR 0002: Python controls separate model calls
 
 Status: accepted on 2026-07-14.
 
 ## Context
 
-The protocol requires strict context isolation, exact fixed-panel fan-in, validation, bounded failure recovery, and resumability without repeating paid calls.
+ETS4 must keep referee contexts apart, wait for the exact fixed panel, check output, limit recovery attempts, and resume without repeating paid calls.
 
 ## Decision
 
-Use an explicit Python state machine and stateless provider calls. The workflow constructs every context, launches a bounded referee pool, persists each successful stage atomically, and alone decides when the final editor may run. Do not use free-form agent handoffs or provider-hosted conversation threads.
+Use a clear Python state machine and separate provider calls. The workflow builds every context, runs a limited referee pool, safely saves each successful stage, and alone decides when the final editor may start. Do not use free-form agent handoffs or provider-hosted conversations.
 
-## Consequences
+## Result
 
-Operational independence is testable. The final editor cannot see partial panels, and a model cannot call tools or choose routing. The implementation is more explicit than an Agent SDK abstraction but remains provider-neutral.
+Referee separation can be tested. The final editor cannot see a partial panel, and a model cannot use tools or choose the next stage. The code is explicit and provider-independent.
 
-## Reversal
+## Revisit if
 
-A workflow runtime or Agent SDK may replace this implementation only if it preserves and tests the same context, fan-in, atomicity, idempotency, and provider boundaries.
+Another workflow system can prove the same context separation, fixed-panel checks, safe writes, resume behavior, and provider boundaries.

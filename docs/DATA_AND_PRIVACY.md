@@ -1,45 +1,45 @@
 # Data and privacy
 
-## Local data
+## Local files
 
-A run directory contains the complete manuscript, extracted page text, all structured and rendered reports, model identifiers, usage, and possibly raw responses. Treat the entire directory as confidential.
+A run directory contains the complete manuscript, extracted page text, all reports, model details, usage, and possibly raw model responses. Treat the whole directory as confidential.
 
-Raw retention defaults to enabled for local audit. Disable it with:
+Raw responses are kept by default for local auditing. Disable this with:
 
 ```bash
 ets4 review manuscript.pdf --no-retain-raw-responses
 ```
 
-Disabling raw retention does not remove the validated report artifacts or provider-side processing. Delete local run directories according to the manuscript owner's policy; ETS4 has no automatic local deletion command in this foundation.
+This setting does not remove the checked reports or change provider-side processing. Delete run directories according to the manuscript owner's rules. ETS4 has no automatic deletion command.
 
 ## OpenAI processing
 
-The adapter uses inline base64 Responses API file input and `store=false` by default. It does not create a Files API object. According to current official documentation, API data is not used for training by default, but abuse-monitoring retention and file-input safety scanning can still apply; Zero Data Retention and Modified Abuse Monitoring require eligible organizational controls. Provider policies may change, so verify them before confidential use.
+The adapter sends the PDF inline to the Responses API and sets `store=false` by default. It does not create a Files API object. Current OpenAI documentation says API data is not used for training by default, but safety monitoring and file scanning may still keep some data. Zero Data Retention and Modified Abuse Monitoring are separate controls for eligible organizations. Provider rules can change, so check them before handling confidential work.
 
 Reference: [OpenAI data controls](https://developers.openai.com/api/docs/guides/your-data).
 
-Do not interpret `store=false` as a promise of zero retention. Do not submit confidential, personal, export-controlled, or regulated material unless authorization and provider terms permit it.
+`store=false` does not promise zero retention. Do not submit confidential, personal, export-controlled, or regulated material unless you have permission and the provider terms allow it.
 
-## Hosted profile requirements
+## What hosting would require
 
-A hosted ETS4 backend must define, implement, and publish:
+A hosted ETS4 service must define, build, and publish:
 
-- lawful basis and user authorization for manuscript processing;
-- per-user authentication and authorization;
-- encrypted transport and storage;
-- tenant isolation;
-- provider and region disclosures;
-- raw/validated artifact retention durations;
-- user deletion/export procedures;
-- backup and log lifecycle;
-- staff-access controls and audit trails;
+- the legal basis and user permission for processing manuscripts;
+- login and per-user access rules;
+- encrypted connections and storage;
+- separation between users;
+- provider and region details;
+- retention periods for raw and checked files;
+- deletion and export tools;
+- backup and log lifetimes;
+- staff access and audit records;
 - incident response;
 - cost and abuse controls.
 
-Local defaults must not be copied blindly to hosted execution.
+Do not copy the local defaults into a hosted service without this work.
 
 ## Logs and manifests
 
-Normal event logs contain state changes, stage names, timestamps, and sanitized provider failures. Provider failures are limited to message, error code, rejected parameter, HTTP status, request ID, provider, and exception type. They do not contain prompts, manuscript prose, reports, API keys, headers, full request payloads, or hidden reasoning. Raw provider responses live only in the explicitly named `logs/raw/` area.
+Normal event logs contain stage names, state changes, times, and safe provider error details. Errors may include a short message, code, rejected parameter, HTTP status, request ID, provider, and exception type. They do not include prompts, manuscript text, reports, API keys, headers, full requests, or hidden reasoning. Raw responses stay only under `logs/raw/` when enabled.
 
-The manifest records the supplied source. For local files this can be an absolute runtime path; runtime directories are ignored and must not be committed or published.
+The manifest records the submitted source. For a local file, that source can be an absolute path on the machine. Run directories are ignored by Git and must not be committed or published.

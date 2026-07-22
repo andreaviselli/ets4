@@ -1,31 +1,31 @@
-# ADR 0003: OpenAI Responses API with native PDF and Structured Outputs
+# ADR 0003: OpenAI Responses with PDFs and structured output
 
 Status: accepted on 2026-07-14.
 
 ## Context
 
-The implementation brief requires supported current OpenAI primitives, structured stage results, and visually meaningful PDF input. API assumptions are time-sensitive.
+ETS4 needs current supported OpenAI features, checked stage output, and access to PDF layout. These API details can change.
 
-Official documentation consulted on 2026-07-14:
+Official docs checked on 2026-07-14:
 
 - [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
 - [File inputs](https://developers.openai.com/api/docs/guides/file-inputs)
 - [Data controls](https://developers.openai.com/api/docs/guides/your-data)
 
-The docs show Python `client.responses.parse` with Pydantic types and state that vision-capable PDF input processing includes extracted text and page images. They also document `input_file` base64 data and Responses storage controls.
+They describe Python Pydantic parsing, base64 PDF input, extracted PDF text and page images for capable models, and Responses storage controls.
 
 ## Decision
 
-Use the official Python SDK Responses API, Pydantic `text_format`, inline base64 PDF `input_file`, configurable PDF detail, and `store=false` by default. Supply no tools. Keep local page text for completeness checks and provider-neutral packaging rather than silently replacing the PDF.
+Use the official Python SDK, `client.responses.parse`, Pydantic `text_format`, an inline base64 `input_file`, configurable PDF detail, and `store=false` by default. Give the model no tools. Keep local page text to check completeness and map pages; do not replace the PDF with it.
 
-Strict output schemas must use closed objects with explicit required properties. Dynamic-key coverage maps are represented as arrays of typed `{referee_id, ...}` cells. Validate these constraints locally before sending a paid request. Record hashes for all three structured-output schemas and provider runtime metadata in new run manifests and fingerprints; refuse resume across schema or SDK provenance changes.
+Strict output objects must list every allowed field. Coverage uses arrays of `{referee_id, ...}` cells instead of arbitrary object keys. Check these rules before a paid request. Record hashes for all three output shapes plus provider and SDK versions, and refuse resume across incompatible changes.
 
-## Consequences
+## Result
 
-The adapter preserves PDF layout for capable models without creating a durable Files API object. Each stage uploads the complete PDF, increasing input cost but satisfying independent complete-manuscript access. Retention still depends on provider policies and organization controls.
+Capable models can inspect the PDF layout without a separate Files API object. Every stage sends the full PDF, which costs more input tokens but preserves referee independence. Provider retention rules still apply.
 
-The first live Stage 1 attempt on 2026-07-14, using SDK `2.45.0` and `gpt-5.6`, rejected `text.format.schema` with `invalid_json_schema`. The documented PDF fields, reasoning, output limit, and storage parameter were accepted far enough for schema validation. The cause was a Pydantic `dict[str, CoverageLevel]`, serialized as schema-valued `additionalProperties`, which is incompatible with strict Structured Outputs. After replacing dynamic maps and removing output defaults, the opt-in live Stage 1 smoke test succeeded. No referee or final-editor live calls were made.
+The first live Stage 1 request failed because `dict[str, CoverageLevel]` produced an unsupported `additionalProperties` schema. Typed cell arrays and removal of defaults fixed it, and the one-call live smoke test then passed.
 
-## Reversal
+## Revisit if
 
-Update this adapter and ADR if the official SDK/API, model file capability, structured-output support, or retention behavior changes. Never fall back silently to Assistants API or partial text.
+The SDK, API, model PDF support, output rules, or retention terms change. Never fall back silently to a retired API or partial text.

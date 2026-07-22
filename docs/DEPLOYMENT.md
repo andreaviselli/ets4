@@ -1,41 +1,45 @@
 # Deployment
 
-## Supported foundation: local CLI
+## Supported setup: local package and CLI
 
-Use Python 3.12 or later in an isolated virtual environment. Keep keys in the process environment, config in an ignored TOML file, and run directories outside synchronized/public folders when manuscripts are confidential.
+Use Python 3.12 or later in a virtual environment. Keep keys in the process environment, local settings in the ignored `config/ets4.toml`, and confidential runs outside public or synchronized folders.
+
+Install the package from a checkout:
 
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e .
+python -m pip install .
 export OPENAI_API_KEY=...
 ets4 validate-config --provider openai --model gpt-5.6
 ets4 review manuscript.pdf --provider openai --model gpt-5.6
 ```
 
-The terminal process is the worker. Long provider calls are bounded by `request_timeout_seconds`. A failed stage remains resumable.
+`python -m ets4` can replace `ets4`. The terminal process does the work. Provider calls stop after `request_timeout_seconds`, and a failed stage can be resumed.
 
-## Containerized local worker
+ETS4 is not yet published on PyPI. See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) for the release checklist.
 
-A later container profile should mount one private input/output volume, inject secrets at runtime, run as a non-root user, set memory/CPU limits, and deny network access except to the configured provider and user-supplied public manuscript hosts. Do not bake keys or manuscripts into images.
+## Possible local container
 
-## Hosted service: not yet implemented
+A future container setup should mount one private input/output volume, add secrets only at runtime, run as a non-root user, limit CPU and memory, and allow network access only to the chosen provider and public manuscript hosts. Keys and manuscripts must never be built into the image.
 
-The API contracts are present, but a deployable service requires:
+## Hosted service: not built
 
-- asynchronous queue and worker lifecycle;
-- authenticated upload and polling endpoints;
+The repository contains future API data shapes, not a working web service. Hosting would require:
+
+- a background job queue and worker lifecycle;
+- logged-in upload and status endpoints;
 - private object storage and database state;
-- process-level run locking and idempotency keys;
-- TLS, tenant authorization, quotas, and budget limits;
-- malware scanning and SSRF-resistant egress controls;
-- encryption, retention, deletion, and audit policy;
-- health monitoring and operator runbooks.
+- locking so two workers cannot change one run at once;
+- TLS, per-user access, quotas, and budgets;
+- malware scanning and network rules that block private addresses;
+- encryption, retention, deletion, and audit rules;
+- health checks and operator instructions.
 
-Holding one HTTP request open across all review calls is not an acceptable design.
+Do not keep one HTTP request open while all model calls run.
 
-## Configuration profiles
+## Profiles
 
-- Local test: mock provider, raw retention optional, no network.
-- Local substantive: OpenAI provider, server-side environment key, private run directory.
-- Hosted: future separate profile with raw retention off unless explicitly justified and all security controls implemented.
+- Local test: mock provider, optional raw response retention, no network.
+- Local OpenAI: environment key, private run directory, and explicit model settings.
+- Hosted: future profile with raw retention off unless there is a clear reason and all privacy controls are in place.

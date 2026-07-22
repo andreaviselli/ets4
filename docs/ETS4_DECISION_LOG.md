@@ -1,134 +1,150 @@
 # ETS4 decision log
 
-This log records durable architectural and editorial choices. The pre-July-2026 applied-digest decision history remains available through tag `archive/pre-targeted-review-2026-07-14`.
+This file records choices that should survive day-to-day code changes. The old applied-digest decisions remain in Git under tag `archive/pre-targeted-review-2026-07-14`.
 
-## 2026-07-14: replace the applied digest with targeted manuscript review
+## 2026-07-14: replace the applied digest with manuscript review
 
-Decision: The active ETS4 product is the three-stage targeted manuscript-review system defined by the July 2026 implementation brief and prompt PDFs. The previous feed collection, triage, digest, benchmark, and export implementation is removed from the active package.
+Decision: ETS4 is now the three-stage paper-review system defined by the July 2026 brief and prompt PDFs. The old feed, sorting, digest, benchmark, and export code is no longer part of the active package.
 
-Context: The implementation brief explicitly declared the existing purpose unrelated and obsolete while requiring repository-history preservation.
+Why: The brief said the old purpose was unrelated and should be replaced, while keeping its history.
 
-Alternatives considered:
+Options considered:
 
-- add the manuscript-review engine beside the digest;
-- create a separate package in the same repository;
-- archive the prior commit and replace the active architecture.
+- keep both products in one package;
+- create another package in this repository;
+- tag the old version and give ETS4 one clear purpose.
 
-Consequence: Commit `8d3be59` is preserved by archival tag, while the active CLI and docs describe only targeted manuscript review. Generic concepts were reimplemented only where they serve the new protocol.
+Result: Commit `8d3be59` is protected by the archive tag. Current code and docs describe only manuscript review.
 
-Reversal condition: Restore from the archival tag or create a separately named product; do not merge the two editorial purposes into one ambiguous workflow.
+Revisit if: The digest is needed again. Restore or fork it from the tag instead of mixing both products.
 
-## 2026-07-14: keep orchestration deterministic and application-controlled
+## 2026-07-14: let Python control the workflow
 
-Decision: Python workflow code controls all stage order, context construction, referee fan-out/fan-in, retry, validation, persistence, cancellation state, and final-editor release.
+Decision: Python code controls stage order, referee contexts, parallel calls, retries, checks, saved files, cancellation, and final-editor release.
 
-Context: Free-form model handoffs could expose reports across referees, run the final editor on partial input, or repeat paid calls after failure.
+Why: Free-form model handoffs could expose one referee's work to another, start the final editor too early, or repeat paid calls after failure.
 
-Alternatives considered:
+Options considered:
 
 - provider-hosted assistant threads;
-- an agent SDK with model-directed handoffs;
-- an explicit local state machine using stateless structured provider calls.
+- model-directed agent handoffs;
+- a clear local state machine with separate structured calls.
 
-Consequence: Review agents receive no tools and cannot choose the next stage. Referees have separate requests with empty supplemental contexts. The final editor is released only after exact fixed-panel completion.
+Result: Review models receive no tools and cannot choose the next step. Each referee gets a separate request. The final editor starts only when the fixed panel is complete.
 
-Reversal condition: A future workflow runtime may replace the file state machine only if it demonstrates the same inspectable context isolation, atomic idempotency, fixed-panel completeness, and provider independence.
+Revisit if: Another workflow system can prove the same context separation, safe file writes, resume behavior, fixed-panel checks, and provider independence.
 
-## 2026-07-14: use Responses API, Structured Outputs, and inline native PDFs
+## 2026-07-14: use Responses, structured output, and inline PDFs
 
-Decision: The OpenAI adapter uses `client.responses.parse`, Pydantic Structured Outputs, and base64 PDF `input_file` content. `store=false` is the default and no tools are supplied.
+Decision: The OpenAI adapter uses `client.responses.parse`, Pydantic output models, and a base64 PDF `input_file`. It sets `store=false` by default and gives the model no tools.
 
-Context: Official OpenAI documentation currently supports Pydantic parsing in the Responses API and describes PDF input as both text and page images on vision-capable models. Inline base64 avoids creating a separately durable Files API object.
+Why: Official OpenAI docs support Pydantic parsing and say capable models can receive PDF text and page images. Inline data avoids creating a separate Files API object.
 
-Alternatives considered:
+Options considered:
 
 - Assistants API;
-- plain JSON text plus local repair only;
-- extracted text in place of the PDF;
-- Files API upload IDs.
+- plain JSON text checked only after the call;
+- extracted text instead of the PDF;
+- Files API uploads.
 
-Consequence: Equations, tables, figures, and layout remain available to capable models while local extraction provides completeness checks and page mapping. The adapter remains isolated behind `Provider`.
+Result: Models can inspect equations, tables, figures, and layout. Local text extraction still checks completeness and page mapping. Provider-specific code stays behind `Provider`.
 
-Reversal condition: Revise the adapter and ADR if official SDK/API guidance, selected-model capability, retention behavior, or structured-output support changes.
+Revisit if: The SDK, API, chosen model, file handling, output format, or retention rules change.
 
-## 2026-07-14: fixed panel coverage is diagnostic, not dynamic routing
+## 2026-07-14: keep the panel fixed after Stage 1
 
-Decision: Once Stage 1 creates the configured panel, the number of referees is fixed for the run. The final coverage appendix records under-coverage but does not add referees or change the manuscript recommendation merely because coverage was weak.
+Decision: Once Stage 1 creates the panel, its size stays fixed for that run. The final appendix can report missed coverage but cannot add referees or change the paper recommendation just because coverage was weak.
 
-Context: The general process document contemplated additional reviewers, while the higher-precedence implementation brief and final-editor prompt explicitly forbid post-report referee additions.
+Why: The general process document mentioned later reviewers, but the higher-priority brief and final-editor prompt forbid them.
 
-Alternatives considered:
+Options considered:
 
-- dynamically add specialists for under-covered dimensions;
-- ask the final editor to fill missing review dimensions;
-- preserve the fixed panel and report coverage limitations.
+- add specialists when a gap appears;
+- ask the final editor to fill missing review areas;
+- keep the panel fixed and report its limits.
 
-Consequence: Runs are auditable, count-bounded, and comparable. Coverage failures inform later panel-design evaluation rather than mutating the current decision process.
+Result: Runs have clear costs and can be compared. Coverage gaps help improve later panel design rather than changing the current review.
 
-Reversal condition: A separately versioned editorial protocol may introduce another review round with explicit human authorization; it must not be smuggled into the fixed-panel workflow.
+Revisit if: A new, clearly versioned protocol adds another round with human approval.
 
-## 2026-07-14: retain raw local responses by explicit policy
+## 2026-07-14: keep raw local responses by default
 
-Decision: Local CLI runs retain raw provider responses by default for audit, separately under `logs/raw/`, with a configuration switch to disable retention.
+Decision: Local runs keep raw provider responses under `logs/raw/` unless the user turns this off.
 
-Context: Auditability favors original-response preservation, while manuscript confidentiality requires explicit and documented retention behavior.
+Why: Original responses help auditing, but papers may be confidential and retention must be visible.
 
-Alternatives considered:
+Options considered:
 
-- never retain raw responses;
-- always retain without configuration;
-- retain locally by default and require a distinct hosted retention policy.
+- never keep raw responses;
+- always keep them;
+- keep them by default only for local runs and require a separate hosting policy.
 
-Consequence: Users must protect and delete run directories appropriately. A hosted backend cannot inherit the local default without authentication, encryption, isolation, and lifecycle controls.
+Result: Users must protect and delete run directories. A hosted service cannot copy this default without login, encryption, user separation, and deletion rules.
 
-Reversal condition: Default to no raw retention if real users routinely process confidential manuscripts without suitable local controls, while keeping an explicit opt-in audit mode.
+Revisit if: Real users often handle confidential papers without suitable local controls. In that case, default to no raw retention and keep an explicit opt-in audit mode.
 
-## 2026-07-14: close structured schemas and bind resume to schema/runtime provenance
+## 2026-07-14: use closed output shapes and bind resume to versions
 
-Decision: Provider-facing coverage matrices use typed cell arrays rather than dynamic-key objects. Every OpenAI output object is locally checked for strict-schema compatibility before a request. New manifests and fingerprints record all stage schema hashes plus provider runtime metadata, and resume refuses schema or SDK drift.
+Decision: Coverage data uses typed cell arrays, not objects with arbitrary keys. ETS4 checks every OpenAI output shape before a request. Manifests record output-schema hashes and provider runtime details, and resume refuses incompatible changes.
 
-Context: The first live initial-editor request reached OpenAI but failed with `invalid_json_schema` at `text.format.schema`. The SDK serialized `dict[str, CoverageLevel]` through schema-valued `additionalProperties`, which strict Structured Outputs rejected. The original run recorded prompt versions but no output-schema or SDK hash.
+Why: The first live initial-editor request failed with `invalid_json_schema`. A Pydantic `dict[str, CoverageLevel]` produced an `additionalProperties` shape that strict Structured Outputs rejected. The old run did not record enough schema or SDK detail for safe resume.
 
-Alternatives considered:
+Options considered:
 
-- dynamically generate count-specific Pydantic object classes with aliased referee fields;
-- bypass strict outputs and parse free-form JSON;
-- use typed coverage cell arrays and retain exact-referee validation in the domain layer.
+- create a new Pydantic class for every panel size;
+- parse free-form JSON;
+- use cell arrays and check exact referee IDs locally.
 
-Consequence: The schemas are provider-compatible without coupling them to a configured panel size. Failures preserve sanitized server diagnostics. Runs started before schema provenance was recorded cannot be resumed across this repair and must be restarted; their prompt artifacts and failure logs remain auditable.
+Result: One output shape works for every supported panel size. Safe error details are saved. Runs created before the added version data must restart.
 
-Reversal condition: A future provider may use another wire representation behind its adapter only if it maps losslessly to the same domain semantics, has explicit versioned provenance, and retains exact panel validation.
+Revisit if: Another provider needs a different wire format that maps exactly to the same ETS4 data and records its own version details.
 
-## 2026-07-22: prioritize documented local use and public-page accuracy
+## 2026-07-22: document local use before expanding the product
 
-Decision: Treat the local OpenAI workflow as operational after two complete real-manuscript runs, update the public ETS4 description next, and defer formal human scoring, a second provider, and hosted execution until a concrete need arises.
+Decision: Treat the local OpenAI workflow as working after two complete real-paper runs. Correct the public description next, while leaving formal human scoring, another provider, and hosting as optional work.
 
-Context: Two four-referee OpenAI runs completed every review stage and produced useful results for the user. The earlier roadmap incorrectly presented a human-scored exercise and provider expansion as mandatory gates before correcting the separate website.
+Why: Both four-referee runs completed and were useful to the user. The old roadmap made optional expansion look like a gate before simple documentation work.
 
-Alternatives considered:
+Options considered:
 
-- keep formal behavioral scoring as the immediate milestone;
-- require a second provider before continued use;
-- build an interactive hosted service before updating the public page;
-- document the working local system now and keep those expansions optional.
+- require formal scoring next;
+- require another provider;
+- build hosting before correcting the site;
+- document the working local tool now.
 
-Consequence: The supported interface remains the local CLI. The website may be updated immediately as an informational page. Formal evaluation remains available for material prompt/model changes, and hosted security work remains mandatory only if browser-triggered reviews are pursued.
+Result: The local CLI remains the supported interface. Formal evaluation is still available when a prompt or model changes, and hosting security remains mandatory if public submissions are added.
 
-Reversal condition: Promote any deferred item when a specific requirement appears, such as image-only input, cross-provider operation, public review submission, or a material prompt/model change that needs comparative evaluation.
+Revisit if: A concrete need appears, such as image-only papers, another provider, public submissions, or an important prompt change.
 
-## 2026-07-22: make review writing informal and issue synthesis reader-facing
+## 2026-07-22: make reports easier to read
 
-Decision: Release prompt version `1.1.0` with one shared instruction to write in plain English, avoid convoluted or unnecessarily technical language, and use an informal tone while remaining objective. Render each final-editor issue through six short reader-facing sections and one compact assessment line.
+Decision: Prompt version `1.1.0` asks for plain English and an informal but objective tone. Final issues use six short reader-facing sections and one compact assessment line.
 
-Context: The `1.0.0` final Markdown exposed schema fields as a checklist and listed referee reasoning separately. That layout was accurate but harder to read than a direct explanation of where an issue applies, what is missing, why it matters, what should change, and the editor's view.
+Why: Version `1.0.0` exposed output fields as a checklist and separated referee reasoning. It was accurate but harder to read.
 
-Alternatives considered:
+Options considered:
 
-- change only the Markdown renderer without guiding the model;
-- add detailed writing instructions to each referee comment;
-- simplify the common writing instruction and structure only the final synthesis;
-- replace structured issue metadata with free-form prose.
+- change only Markdown rendering;
+- add detailed style rules to every comment;
+- use one simple shared style rule and structure only the final report;
+- replace checked issue data with free-form prose.
 
-Consequence: The referee schema and substantive review protocol remain unchanged. `SynthesizedIssue` gains explicit fields for what is missing, why it matters, and what needs to change. Referee-specific reasoning remains in JSON for audit, while the Markdown view uses synthesized prose and compact metadata. The immutable `1.0.0` assets remain available.
+Result: The referee format and review rules stay the same. JSON keeps referee-specific reasoning for audit, while Markdown presents one clear explanation per issue. Version `1.0.0` remains available.
 
-Reversal condition: Revise the presentation in a later prompt version if the informal tone reduces precision, the section labels do not fit recurring issue types, or audit needs require selected referee attribution in the rendered report.
+Revisit if: The tone reduces precision, the section labels fit poorly, or audit needs require referee names in the readable report.
+
+## 2026-07-22: prepare a staged Python package release
+
+Decision: Keep installation from a repository checkout as the supported path while preparing a proper public package release. Support both `ets4` and `python -m ets4`, test built files in a clean environment, and do not claim PyPI availability before a licence and release process are in place.
+
+Why: The repository already builds a wheel, but the README only showed an editable developer install and there was no release checklist. Publishing immediately would leave ownership, licence, metadata, and clean-install checks unresolved.
+
+Options considered:
+
+- keep the developer-only install instructions;
+- publish the current wheel immediately;
+- improve local package use now and release only after the checklist passes.
+
+Result: User and developer install steps are separate, package metadata is clearer, and [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) holds the remaining release work.
+
+Revisit if: The package is published or the project remains private. Update the install path and remove release steps that no longer apply.

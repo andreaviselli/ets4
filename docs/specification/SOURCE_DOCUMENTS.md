@@ -1,6 +1,6 @@
-# Source-document provenance
+# Source documents
 
-The July 2026 refactor used four user-supplied PDFs as the editorial source specification. The PDFs remain outside Git; their exact SHA-256 hashes preserve provenance without committing duplicate source files.
+The July 2026 rewrite used four user-supplied PDFs as the source for the review rules. The PDFs stay outside Git. Their SHA-256 hashes identify the exact files without committing copies.
 
 | Title | Pages | SHA-256 |
 | --- | ---: | --- |
@@ -17,6 +17,6 @@ Specification precedence is:
 2. stage-specific prompt PDFs;
 3. `ETS4 Review Process.pdf`.
 
-Consequently, the fixed-panel final-editor rule overrides the general process document's exploratory suggestion that additional reviewers could be invited after observing coverage.
+The fixed-panel rule in the first two sources therefore overrides the general document's suggestion that coverage gaps could add reviewers.
 
-Canonical, parameterized prompt text is versioned under `src/ets4/prompts/templates/`. Metadata files repeat the source hash for the stage they normalize.
+The working, versioned prompt text lives under `src/ets4/prompts/templates/`. Each metadata file repeats the hash of its source PDF.

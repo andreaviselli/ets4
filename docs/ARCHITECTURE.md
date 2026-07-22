@@ -1,40 +1,40 @@
 # Architecture
 
-## System boundary
+## Project boundary
 
-ETS4 is a local-first Python 3.12 library and CLI. It owns manuscript ingestion, editorial protocol prompts, structured outputs, model adapters, deterministic orchestration, durable artifacts, and Markdown rendering. It does not own the public website or publication workflow.
+ETS4 is a local-first Python 3.12 package and command-line tool. It reads manuscripts, renders the review prompts, checks model output, controls the workflow, saves run files, and renders Markdown. It does not own the public website or publish papers.
 
 ```text
-CLI / future API contract
+CLI / future API shapes
           |
           v
-ReviewWorkflow (state, fan-out/fan-in, retries, resume)
+ReviewWorkflow (stage order, retries, resume)
    |          |             |                |
-ingestion   prompts      providers         storage
+PDF input   prompts      providers         storage
    |          |             |                |
-canonical   typed       mock / OpenAI     atomic JSON,
-PDF + text  rendering   isolated calls    Markdown, logs
+PDF + text  typed data   mock / OpenAI     JSON, Markdown,
+                                            and event logs
           \       |       /
-           validated domain schemas
+             checked models
 ```
 
-Dependencies point inward toward provider-neutral types. The workflow imports provider interfaces, never OpenAI SDK types. Prompt rendering occurs before provider calls and does not know API payload formats.
+The workflow depends on provider-independent Python types, not OpenAI SDK types. Prompts are rendered before a provider call, and prompt code does not build provider payloads.
 
-## Three-stage execution
+## The three stages
 
-1. Ingestion reads every PDF page, persists the canonical file and normalized page text, and calculates SHA-256.
-2. Initial editor receives the complete manuscript and produces `EditorPanelDesign` for the configured count.
-3. The orchestrator creates one isolated `StageRequest` per profile. Referee requests have empty supplemental context and receive only their rendered profile plus the complete manuscript.
-4. Referee calls run in a bounded thread pool. Each validated report is atomically persisted as it completes.
-5. Fan-in checks exact referee identifiers and count. Any missing report moves the run to `awaiting_retry`; the final editor is not called.
-6. Final editor receives the complete manuscript, initial panel JSON, and every referee report JSON. It returns `FinalEditorDecision`.
-7. The workflow verifies that every original coverage row and planned cell is preserved, renders Markdown, writes usage, and marks the run complete.
+1. PDF input reads every page, saves the original file and page text, and calculates its SHA-256 hash.
+2. The initial editor receives the full manuscript and returns an `EditorPanelDesign` for the requested panel size.
+3. The workflow creates one separate `StageRequest` for each referee. A referee receives the full manuscript and only their own profile.
+4. Referees run in a limited thread pool. Each valid report is saved as soon as it finishes.
+5. The workflow checks the expected referee IDs and total. If any report is missing, the run moves to `awaiting_retry` and the final editor stays blocked.
+6. The final editor receives the full manuscript, the panel design, and every referee report. It returns a `FinalEditorDecision`.
+7. The workflow checks that the coverage table still contains every original row and planned cell, writes Markdown and usage data, and completes the run.
 
-The same logical editor opens and closes the process through explicitly supplied Stage 1 artifacts. There is no hidden shared provider session.
+The initial and final editor are the same logical role, linked by saved Stage 1 data. There is no hidden shared model conversation.
 
-## Durable state
+## Saved run state
 
-`run-manifest.json` is the source of workflow status. The state sequence is:
+`run-manifest.json` is the main record of progress:
 
 ```text
 manuscript_received -> manuscript_normalized -> initial_editor_completed
@@ -43,43 +43,37 @@ manuscript_received -> manuscript_normalized -> initial_editor_completed
 -> outputs_rendered -> completed
 ```
 
-Any model-stage failure becomes `awaiting_retry`; explicit cancellation becomes `cancelled`. Outputs are written atomically before the manifest advances. Resume also discovers a valid stage JSON artifact if a process stopped after artifact persistence but before manifest persistence, avoiding a repeated paid call.
+A model failure becomes `awaiting_retry`; a user cancellation becomes `cancelled`. ETS4 finishes writing each output before it updates the manifest. On resume, it can recover a valid JSON output written just before a process stopped, so a paid call is not repeated.
 
-The deterministic input fingerprint hashes:
+The input fingerprint covers:
 
-- manuscript SHA-256;
+- the manuscript SHA-256;
 - prompt versions;
-- structured-output schema hashes;
-- provider runtime metadata, including the OpenAI SDK version when applicable;
+- output-schema hashes;
+- provider and SDK details;
 - provider and model settings;
-- referee count and behaviorally relevant run limits.
+- panel size and limits that can affect results.
 
-It supports run comparison and duplicate detection but does not imply byte-identical stochastic outputs.
+The fingerprint helps compare runs and spot duplicates. It does not mean that model output will be identical.
 
 ## Provider boundary
 
-`Provider` exposes:
+A provider reports its features, checks that it can handle the full manuscript, makes one separate structured call, classifies retryable errors, and returns usage and response details when available.
 
-- explicit capabilities;
-- complete-manuscript preflight;
-- one isolated structured `generate` call;
-- retry classification;
-- raw response, provider response ID, and usage metadata.
+The OpenAI adapter uses `client.responses.parse`, Pydantic output models, and a base64 `input_file`. The mock adapter uses the same workflow without network access or cost.
 
-The OpenAI adapter uses the official SDK's `client.responses.parse`, Pydantic response types, and a base64 `input_file`. The mock adapter exercises the same orchestration without a network or cost.
-
-Provider-facing structured schemas avoid dynamic-key objects because strict Structured Outputs require closed objects with explicit required properties. Coverage matrices therefore serialize as arrays of typed referee cells while domain validators still enforce exact referee identifiers. A local strict-schema compatibility check runs before every OpenAI request.
+OpenAI's strict output format does not allow open-ended object keys. Coverage tables therefore use arrays of typed referee cells, while local checks still require the exact referee IDs. ETS4 checks this format before each OpenAI request.
 
 ## Storage boundary
 
-Run directories are intentionally simple and inspectable. JSON is authoritative for structured artifacts; Markdown is a deterministic human-readable view. Raw outputs are separate from public artifacts and controlled by retention settings.
+Each run is a normal directory that can be inspected or moved. JSON is the source for structured data; Markdown is the readable view. Raw provider output is kept separately and only when the retention setting allows it.
 
-There is no SQLite database or publishing-repository integration in the new system. Those were properties of the archived pre-refactor product.
+The old digest product used SQLite and export folders. The current review package does not.
 
-## Optional API boundary
+## Python package and future API
 
-`src/ets4/api/contracts.py` contains only provider-independent DTOs. A future service should call the same workflow library asynchronously. HTTP, authentication, uploads, queues, and object storage must remain outside domain and provider modules.
+Installable code lives under `src/ets4/`. `ets4.cli` is the supported user interface, and `ets4.__main__` lets the same CLI run through `python -m ets4`.
 
-## Consequential choices
+`src/ets4/api/contracts.py` contains only data shapes for a possible future service. A hosted service should call the same workflow from background workers. Web routing, login, uploads, queues, and private storage must stay outside the review and provider modules.
 
-See `docs/adr/` for the product replacement, application-controlled orchestration, OpenAI API primitives, and local persistence/retention decisions.
+See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) for package-release work and [`adr/`](adr/) for the main design decisions.
