@@ -14,6 +14,6 @@ ets4 review /tmp/ets4-synthetic-forecast-combination-v1.pdf \
   --provider openai --model MODEL_NAME --referees 4
 ```
 
-Run ETS4 into ignored `runs/`, then score artifacts with `criteria-v1.json`. Record the case version, generated manuscript hash, run fingerprint, provider/model configuration, prompt versions, evaluator, evidence, and any critical failure.
+Run ETS4 into ignored `runs/`, then score current runs with `criteria-v3.json`. It covers two-step Stage 1 plus the referee and final-editor `1.2.0` prose format. Keep versions 1 and 2 for runs using older prompt formats. Record the case version, generated manuscript hash, run fingerprint, provider/model configuration, prompt versions, evaluator, evidence, and any critical failure.
 
 Live provider calls are opt-in, cost-bearing, and never part of default CI.

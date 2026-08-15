@@ -9,7 +9,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-HARD_MAX_REFEREES = 12
+from ets4.limits import HARD_MAX_REFEREES, MAX_REVIEW_REQUIREMENTS
 
 
 class ConfigurationError(ValueError):
@@ -27,6 +27,9 @@ class ReviewSettings(BaseModel):
     referee_model: str | None = None
     final_editor_model: str | None = None
     referee_count: int = Field(default=4, ge=1)
+    review_requirement_count: int | None = Field(
+        default=None, ge=1, le=MAX_REVIEW_REQUIREMENTS
+    )
     max_referees: int = Field(default=8, ge=1, le=HARD_MAX_REFEREES)
     max_concurrency: int = Field(default=4, ge=1, le=HARD_MAX_REFEREES)
     max_provider_retries: int = Field(default=2, ge=0, le=5)
@@ -75,6 +78,7 @@ ENV_FIELDS: dict[str, str] = {
     "ETS4_REFEREE_MODEL": "referee_model",
     "ETS4_FINAL_EDITOR_MODEL": "final_editor_model",
     "ETS4_REFEREE_COUNT": "referee_count",
+    "ETS4_REVIEW_REQUIREMENT_COUNT": "review_requirement_count",
     "ETS4_MAX_REFEREES": "max_referees",
     "ETS4_MAX_CONCURRENCY": "max_concurrency",
     "ETS4_MAX_PROVIDER_RETRIES": "max_provider_retries",
@@ -87,6 +91,10 @@ ENV_FIELDS: dict[str, str] = {
 
 
 def _coerce_environment_value(field: str, value: str) -> Any:
+    if field == "review_requirement_count":
+        if value.strip().lower() == "auto":
+            return None
+        return int(value)
     if field in {
         "referee_count",
         "max_referees",
@@ -134,6 +142,18 @@ def load_settings(
 
     if cli_overrides:
         values.update({key: value for key, value in cli_overrides.items() if value is not None})
+
+    requirement_count = values.get("review_requirement_count")
+    if isinstance(requirement_count, str):
+        if requirement_count.strip().lower() == "auto":
+            values["review_requirement_count"] = None
+        else:
+            try:
+                values["review_requirement_count"] = int(requirement_count)
+            except ValueError as exc:
+                raise ConfigurationError(
+                    "review_requirement_count must be 'auto' or a positive integer"
+                ) from exc
 
     try:
         return ReviewSettings.model_validate(values)

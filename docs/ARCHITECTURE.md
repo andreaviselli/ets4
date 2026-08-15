@@ -23,12 +23,14 @@ The workflow depends on provider-independent Python types, not OpenAI SDK types.
 ## The three stages
 
 1. PDF input reads every page, saves the original file and page text, and calculates its SHA-256 hash.
-2. The initial editor receives the full manuscript and returns an `EditorPanelDesign` for the requested panel size.
-3. The workflow creates one separate `StageRequest` for each referee. A referee receives the full manuscript and only their own profile.
-4. Referees run in a limited thread pool. Each valid report is saved as soon as it finishes.
-5. The workflow checks the expected referee IDs and total. If any report is missing, the run moves to `awaiting_retry` and the final editor stays blocked.
-6. The final editor receives the full manuscript, the panel design, and every referee report. It returns a `FinalEditorDecision`.
-7. The workflow checks that the coverage table still contains every original row and planned cell, writes Markdown and usage data, and completes the run.
+2. The initial editor receives the full manuscript and discovers an exact or unprompted number of ordered review requirements.
+3. The application retains the requested set or, in auto mode, at most the first ten. It records a warning when it discards later requirements.
+4. A separate panel-design call receives the full manuscript and only the retained requirements, then returns an `EditorPanelDesign` for the requested panel size.
+5. The workflow creates one separate `StageRequest` for each referee. A referee receives the full manuscript and only their own profile.
+6. Referees run in a limited thread pool. Each valid report is saved as soon as it finishes.
+7. The workflow checks the expected referee IDs and total. If any report is missing, the run moves to `awaiting_retry` and the final editor stays blocked.
+8. The final editor receives the full manuscript, the retained panel design, and every referee report. It returns a `FinalEditorDecision` whose reader-facing issues are prose passages capped at 2,000 characters; classifications and referee-specific reasoning remain structured audit data.
+9. The workflow checks that the coverage table still contains every retained row and planned cell, writes Markdown and usage data, and completes the run.
 
 The initial and final editor are the same logical role, linked by saved Stage 1 data. There is no hidden shared model conversation.
 
@@ -37,7 +39,8 @@ The initial and final editor are the same logical role, linked by saved Stage 1 
 `run-manifest.json` is the main record of progress:
 
 ```text
-manuscript_received -> manuscript_normalized -> initial_editor_completed
+manuscript_received -> manuscript_normalized -> review_requirements_completed
+-> initial_editor_completed
 -> referee_jobs_created -> referee_reports_in_progress
 -> referee_reports_completed -> final_editor_completed
 -> outputs_rendered -> completed
@@ -53,6 +56,7 @@ The input fingerprint covers:
 - provider and SDK details;
 - provider and model settings;
 - panel size and limits that can affect results.
+- exact or auto review-requirement mode and the application retention cap.
 
 The fingerprint helps compare runs and spot duplicates. It does not mean that model output will be identical.
 
@@ -66,7 +70,7 @@ OpenAI's strict output format does not allow open-ended object keys. Coverage ta
 
 ## Storage boundary
 
-Each run is a normal directory that can be inspected or moved. JSON is the source for structured data; Markdown is the readable view. Raw provider output is kept separately and only when the retention setting allows it.
+Each run is a normal directory that can be inspected or moved. JSON is the source for structured and audit data; Markdown is the simpler readable view and intentionally omits reviewer confidence, issue classifications, and referee-specific reasoning. Raw provider output is kept separately and only when the retention setting allows it.
 
 The old digest product used SQLite and export folders. The current review package does not.
 

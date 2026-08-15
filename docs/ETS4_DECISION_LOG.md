@@ -2,6 +2,39 @@
 
 This file records choices that should survive day-to-day code changes. The old applied-digest decisions remain in Git under tag `archive/pre-targeted-review-2026-07-14`.
 
+## 2026-08-15: make referee and final-editor comments natural prose
+
+Decision: Referee prompt `1.2.0` and final-editor prompt `1.2.0` follow the manuscript's language and notation. Major referee comments use one prose field, include a concrete example, and receive a second deliberate check before finalization. Final issues use one prose field capped at 2,000 characters. Readable reports remove rigid labels, issue tags, reviewer confidence, and four repetitive final sections. JSON keeps confidence, locations, classifications, and referee reasoning for audit.
+
+Why: The earlier labelled blocks encouraged rigid and needlessly formal writing. They also exposed useful audit data as visual clutter in reports intended for authors and editors.
+
+Options considered:
+
+- change only Markdown rendering while keeping prompts and schemas rigid;
+- remove structured audit data as well as reader-facing labels;
+- simplify both prompt output shapes and Markdown while keeping audit-only fields in JSON;
+- allow optional external reference searches now.
+
+Result: Reader-facing reports use Summary, Referee comments, and Recommendation. Major comments have no titles or Concern, Affected claim, or location labels. Final issue classifications are not shown as tags. External reference searches remain disabled and are recorded only as a possible future extension.
+
+Revisit if: Human evaluation finds that prose loses important precision, examples become mechanical, the second check does not reduce errors, or a separately reviewed browsing policy can add references without weakening isolation, security, privacy, or reproducibility.
+
+## 2026-08-15: separate requirement discovery from panel design
+
+Decision: Let users request an exact number of review requirements from one through ten or use auto mode. Auto mode gives the requirement-discovery editor no number, range, or application cap. ETS4 keeps the first ten importance-ordered requirements, warns when it discards later ones, and makes a second initial-editor call that designs the panel from only the retained set.
+
+Why: The fixed five-to-eight instruction could anchor the editor. Truncating a completed one-call panel would not be enough because discarded requirements could already have shaped referee profiles.
+
+Options considered:
+
+- keep the five-to-eight range;
+- remove the range and truncate the completed panel response;
+- separate free discovery from panel design and apply the cap between them.
+
+Result: Discarded requirement text reaches no panel, referee, or final-editor call. It remains only in optional raw-response retention. Runs record the configured mode, the checked retained list, discarded identifiers, and a durable warning. Auto mode adds one provider call.
+
+Revisit if: Human evaluation shows that the extra call does not reduce anchoring or improve panel fit enough to justify its latency and cost. Keep any replacement equally explicit about what reaches downstream stages.
+
 ## 2026-07-14: replace the applied digest with manuscript review
 
 Decision: ETS4 is now the three-stage paper-review system defined by the July 2026 brief and prompt PDFs. The old feed, sorting, digest, benchmark, and export code is no longer part of the active package.

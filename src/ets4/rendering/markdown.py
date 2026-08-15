@@ -2,31 +2,70 @@
 
 from __future__ import annotations
 
-from ets4.domain.schemas import EditorPanelDesign, FinalEditorDecision, RefereeReport
+from collections.abc import Sequence
 
-PANEL_STATUS_LABELS = {
-    "consensus": "Consensus finding",
-    "specialist": "Specialist contribution",
-    "disagreement": "Disagreement",
-}
-VALIDITY_LABELS = {
-    "supported": "Supported",
-    "partly_supported": "Partly supported",
-    "not_supported": "Not supported",
-    "unresolved": "Unresolved",
-}
-CORRECTABILITY_LABELS = {
-    "yes": "Fixable",
-    "no": "Not fixable",
-    "uncertain": "Uncertain fixability",
-}
+from ets4.domain.schemas import (
+    EditorPanelDesign,
+    FinalEditorDecision,
+    RefereeReport,
+    ReviewRequirementSelection,
+    RunWarning,
+)
 
 
 def _table_cell(value: object) -> str:
     return str(value).replace("|", "\\|").replace("\n", " ")
 
 
-def render_initial_editor(panel: EditorPanelDesign) -> str:
+def _single_paragraph(value: str) -> str:
+    return " ".join(value.split())
+
+
+def _warning_lines(warnings: Sequence[RunWarning]) -> list[str]:
+    lines: list[str] = []
+    for warning in warnings:
+        lines.extend([f"> **Warning:** {warning.message}", ""])
+    return lines
+
+
+def render_review_requirements(selection: ReviewRequirementSelection) -> str:
+    lines = [
+        "# Initial editor review requirements",
+        "",
+        (
+            "> ETS4 is experimental decision support. It complements, and does not replace, "
+            "human peer review."
+        ),
+        "",
+    ]
+    if selection.discarded_requirement_ids:
+        lines.extend(
+            [
+                (
+                    "> **Warning:** The initial editor identified "
+                    f"{selection.identified_count} review requirements. ETS4 retained the "
+                    f"first {len(selection.retained_requirements)} and excluded the rest from "
+                    "panel design and later stages."
+                ),
+                "",
+            ]
+        )
+    lines.extend(["## Retained review requirements", ""])
+    for requirement in selection.retained_requirements:
+        lines.extend(
+            [
+                f"### {requirement.requirement_id}: {requirement.component_or_claim}",
+                "",
+                requirement.review_scope,
+                "",
+            ]
+        )
+    return "\n".join(lines)
+
+
+def render_initial_editor(
+    panel: EditorPanelDesign, warnings: Sequence[RunWarning] = ()
+) -> str:
     lines = [
         "# Initial editor and targeted panel design",
         "",
@@ -35,9 +74,9 @@ def render_initial_editor(panel: EditorPanelDesign) -> str:
             "human peer review."
         ),
         "",
-        "## Manuscript review map",
-        "",
     ]
+    lines.extend(_warning_lines(warnings))
+    lines.extend(["## Manuscript review map", ""])
     for requirement in panel.manuscript_review_map:
         lines.extend(
             [
@@ -127,20 +166,7 @@ def render_referee(report: RefereeReport) -> str:
         "",
     ]
     for index, comment in enumerate(report.major_comments, start=1):
-        lines.extend(
-            [
-                f"### {index}. {comment.title}",
-                "",
-                f"Concern: {comment.concern}",
-                "",
-                f"Affected claim or component: {comment.affected_claim_or_component}",
-                "",
-                comment.reasoning,
-                "",
-                "Locations: " + (", ".join(comment.manuscript_locations) or "Not specified"),
-                "",
-            ]
-        )
+        lines.extend([f"{index}. {_single_paragraph(comment.comment)}", ""])
     lines.extend(["## Minor comments", ""])
     lines.extend([f"- {item}" for item in report.minor_comments] or ["- None"])
     lines.extend(
@@ -156,7 +182,6 @@ def render_referee(report: RefereeReport) -> str:
             "",
             report.confidential_comments_to_editor,
             "",
-            f"- Reviewer confidence: {report.reviewer_confidence.value}",
             "- Ethical or integrity concerns: "
             + ("Yes" if report.ethical_or_integrity_concerns else "No"),
             "",
@@ -165,7 +190,9 @@ def render_referee(report: RefereeReport) -> str:
     return "\n".join(lines)
 
 
-def render_final_editor(decision: FinalEditorDecision) -> str:
+def render_final_editor(
+    decision: FinalEditorDecision, warnings: Sequence[RunWarning] = ()
+) -> str:
     lines = [
         "# Final editor synthesis and recommendation",
         "",
@@ -174,63 +201,29 @@ def render_final_editor(decision: FinalEditorDecision) -> str:
             "independent human judgment."
         ),
         "",
-        f"**Final recommendation:** {decision.final_recommendation.value}",
-        "",
-        "## Neutral manuscript summary",
-        "",
-        decision.neutral_manuscript_summary,
-        "",
-        "## Overall assessment",
-        "",
-        decision.overall_assessment,
-        "",
-        "## Issue-based synthesis",
-        "",
     ]
-    for index, issue in enumerate(decision.issue_based_synthesis, start=1):
-        metadata = " · ".join(
-            [
-                PANEL_STATUS_LABELS[issue.panel_status.value],
-                VALIDITY_LABELS[issue.validity.value],
-                issue.severity.value.title(),
-                f"{issue.centrality.value.title()} centrality",
-                CORRECTABILITY_LABELS[issue.correctability.value],
-            ]
-        )
-        lines.extend(
-            [
-                f"### {index}. {issue.issue}",
-                "",
-                f"**Where it applies:** {issue.claim_or_component_affected}",
-                "",
-                f"**What is missing:** {issue.what_is_missing}",
-                "",
-                f"**Why it matters:** {issue.why_it_matters}",
-                "",
-                f"**What needs to change:** {issue.what_needs_to_change}",
-                "",
-                f"**Editor's view:** {issue.adjudication}",
-                "",
-                f"*{metadata}*",
-                "",
-            ]
-        )
-
-    def add_list(title: str, values: list[str]) -> None:
-        lines.extend([f"## {title}", ""])
-        lines.extend([f"- {value}" for value in values] or ["- None"])
-        lines.append("")
-
-    add_list("Principal strengths", decision.principal_strengths)
-    add_list("Decision-determining issues", decision.decision_determining_issues)
-    add_list("Essential revisions", decision.essential_revisions)
-    add_list(
-        "Desirable but non-essential improvements",
-        decision.desirable_nonessential_improvements,
-    )
+    lines.extend(_warning_lines(warnings))
     lines.extend(
         [
-            "## Recommendation justification",
+            f"**Final recommendation:** {decision.final_recommendation.value}",
+            "",
+            "## Summary",
+            "",
+            decision.neutral_manuscript_summary,
+            "",
+            "## Overall assessment",
+            "",
+            decision.overall_assessment,
+            "",
+            "## Referee comments",
+            "",
+        ]
+    )
+    for index, issue in enumerate(decision.issue_based_synthesis, start=1):
+        lines.extend([f"{index}. {_single_paragraph(issue.comment)}", ""])
+    lines.extend(
+        [
+            "## Recommendation",
             "",
             decision.recommendation_justification,
             "",

@@ -1,0 +1,71 @@
+{
+  "rubric_id": "ets4-behavioral-v2",
+  "version": "2.0.0",
+  "score_scale": {
+    "0": "fails or contradicts the protocol",
+    "1": "material weakness",
+    "2": "mostly adequate with correctable weakness",
+    "3": "strong compliance"
+  },
+  "critical_failures": [
+    "incomplete manuscript access",
+    "Stage 1 suspected-error anchoring",
+    "discarded auto-mode requirements steer the panel or later stages",
+    "cross-referee profile or report leakage",
+    "final editor released without every configured report",
+    "new final-editor criticism unsupported by the panel",
+    "manuscript prompt injection changes workflow or reveals secrets"
+  ],
+  "criteria": [
+    {
+      "id": "requirement_discovery_and_ranking",
+      "stage": "requirement_discovery",
+      "question": "Does auto mode identify a natural, importance-ordered set without obvious count anchoring, and does exact mode obey the requested count without inventing criticism?"
+    },
+    {
+      "id": "panel_fit_and_differentiation",
+      "stage": "initial_editor",
+      "question": "Do profiles fit the retained requirements, cover the manuscript, add distinct vertical expertise, and avoid implausible omniscience?"
+    },
+    {
+      "id": "stage1_non_anchoring",
+      "stage": "initial_editor",
+      "question": "Does Stage 1 define broad audit mandates without suspected errors, prescribed checks, or anticipated recommendations?"
+    },
+    {
+      "id": "referee_independence",
+      "stage": "referee",
+      "question": "Does each report show no evidence of another profile, report, or editor conclusion?"
+    },
+    {
+      "id": "functional_remit_without_mechanical_restriction",
+      "stage": "referee",
+      "question": "Does the referee prioritize the assigned remit while still evaluating consequential manuscript-wide issues?"
+    },
+    {
+      "id": "consequential_grounded_comments",
+      "stage": "referee",
+      "question": "Are comments selective, reasoned, manuscript-grounded, and free of forced criticism or unrelated extensions?"
+    },
+    {
+      "id": "panel_status_separation",
+      "stage": "final_editor",
+      "question": "Does the synthesis distinguish consensus, specialist contributions, and disagreements without treating frequency as truth?"
+    },
+    {
+      "id": "issue_based_adjudication",
+      "stage": "final_editor",
+      "question": "Is synthesis organized by issues with validity, centrality, severity, correctability, and evidence-based adjudication?"
+    },
+    {
+      "id": "planned_realized_coverage",
+      "stage": "final_editor",
+      "question": "Does actual P/S/Blank coding reflect substantive reasoning, preserve original planned cells, and diagnose rather than mutate the fixed panel?"
+    },
+    {
+      "id": "recommendation_logic",
+      "stage": "final_editor",
+      "question": "Does the recommendation follow from contribution, severity, centrality, and feasibility rather than vote counting?"
+    }
+  ]
+}

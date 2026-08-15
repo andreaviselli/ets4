@@ -14,9 +14,10 @@ The suite uses temporary synthetic PDFs and mocked network or provider responses
 - safe landing-page links and rejection of private addresses;
 - broken and image-only files;
 - separation of manuscript data from prompts;
-- panel counts and coverage rules;
+- exact and auto review-requirement counts, hidden-cap behavior, warnings, panel counts, and coverage rules;
 - allowed answers and recommendations;
-- prompt variables and packaged prompt versions;
+- prose-only referee and final-editor comments, hidden reader-facing audit fields, removed sections, and the 2,000-character final-issue limit;
+- prompt variables, number-free discovery schemas, and packaged prompt versions;
 - OpenAI PDF requests and structured output;
 - safe handling of OpenAI schema and API errors;
 - separate parallel referee calls;
@@ -39,7 +40,7 @@ Use Python 3.12 for release checks. Older Python versions are not supported.
 
 ## Human evaluation
 
-Schema tests cannot judge intellectual quality. `evals/criteria-v1.json` scores panel fit, referee separation and role use, Stage 1 neutrality, final issue handling, and actual coverage. The fixed synthetic case lives in `evals/cases/`, and `evals/build_case_pdf.py` turns it into a PDF.
+Schema tests cannot judge intellectual quality. `evals/criteria-v3.json` covers the current two-step Stage 1 and the prose report format, including manuscript-aligned language and notation, examples, careful criticism, and plain final synthesis. The fixed synthetic case lives in `evals/cases/`, and `evals/build_case_pdf.py` turns it into a PDF. Versions 1 and 2 remain for older prompt formats.
 
 Human checks use public or synthetic manuscripts and saved run files. They are not normal unit tests and must not require a live provider in CI. Record all settings, prompt versions, manuscript hash, evaluator, scoring-guide version, evidence, and result.
 
@@ -47,7 +48,7 @@ Human checks use public or synthetic manuscripts and saved run files. They are n
 
 A live test must be marked `live`, stay off by default, require an environment key, state its maximum calls or cost, use an approved public or synthetic paper, and write only ignored run output.
 
-The current OpenAI smoke test makes one paid initial-editor call with a small synthetic PDF and cannot start referees:
+The current OpenAI smoke test makes one paid requirement-discovery call with a small synthetic PDF and cannot design the panel or start referees:
 
 ```bash
 export OPENAI_API_KEY=...

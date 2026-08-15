@@ -6,18 +6,24 @@ Normal tests can prove that ETS4 uses the right counts, values, stage order, sep
 
 ## Scoring guide
 
-`evals/criteria-v1.json` checks:
+`evals/criteria-v3.json` checks:
 
 - whether the panel fits the paper and gives referees distinct roles;
 - whether important claims are covered without impossible all-purpose experts;
 - whether Stage 1 avoids planting suspected errors;
+- whether auto discovery avoids obvious count anchoring and ranks the most important requirements first;
+- whether separating discovery from panel design improves coverage enough to justify its added call;
 - whether referees stay separate and do not leak other reports;
 - whether each referee uses their expertise without following the profile mechanically;
 - whether comments are important and grounded in the paper rather than forced;
+- whether major criticisms use the manuscript's language and notation, include useful examples, and avoid errors or overstatement after the required second check;
+- whether referee and final-editor comments read as natural prose without rigid titles, labels, or tags;
 - whether the final editor separates agreement, specialist points, and disagreement;
 - whether the final report is organized by issue instead of votes;
 - whether planned and actual coverage are compared from real reasoning;
 - whether the recommendation follows from valid, important, and fixable issues.
+
+Version 3 covers the referee and final-editor `1.2.0` prompts. Version 2 remains the guide for two-step Stage 1 runs that use the earlier report format.
 
 ## Evaluation record
 

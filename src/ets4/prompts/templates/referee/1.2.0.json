@@ -1,0 +1,13 @@
+{
+  "stable_id": "ets4.referee.v1",
+  "version": "1.2.0",
+  "title": "ETS4 Independent Referee",
+  "source_sha256": "47f90a97eefe0255d04a30d99a7fc3290cfe3a32ab42afb0d1aa26f8897b8aa0",
+  "template_sha256": "9ac694686bbbac3be45249a5eaaef6ade2832dd1f6844f682422c9fe9d2cded3",
+  "changes": [
+    "Replaced titled, labelled major comments with one natural prose field.",
+    "Aligned language and notation with the manuscript's conventions.",
+    "Required a concrete example and a second deliberate check for each criticism.",
+    "Kept external reference searches outside the current review protocol."
+  ]
+}

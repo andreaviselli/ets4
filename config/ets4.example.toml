@@ -1,5 +1,7 @@
 [review]
 referee_count = 4
+# Use "auto" to give the initial editor no number guidance, or choose 1 through 10.
+review_requirement_count = "auto"
 max_referees = 8
 max_concurrency = 4
 max_provider_retries = 2

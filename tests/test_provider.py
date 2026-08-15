@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import httpx
@@ -9,7 +10,12 @@ from openai.lib._parsing._responses import type_to_text_format_param
 from pydantic import BaseModel, ConfigDict
 
 from ets4.config import ReviewSettings
-from ets4.domain.schemas import EditorPanelDesign, FinalEditorDecision, RefereeReport
+from ets4.domain.schemas import (
+    EditorPanelDesign,
+    FinalEditorDecision,
+    RefereeReport,
+    ReviewRequirementDiscovery,
+)
 from ets4.prompts.renderer import PromptRepository
 from ets4.providers.base import ProviderError, StageRequest
 from ets4.providers.mock import MockProvider
@@ -209,7 +215,7 @@ def test_dynamic_key_schema_is_rejected_locally_before_any_paid_call(manuscript)
 
 @pytest.mark.parametrize(
     "response_model",
-    [EditorPanelDesign, RefereeReport, FinalEditorDecision],
+    [ReviewRequirementDiscovery, EditorPanelDesign, RefereeReport, FinalEditorDecision],
 )
 def test_all_provider_output_schemas_pass_local_strict_compatibility(
     response_model: type[BaseModel],
@@ -227,3 +233,16 @@ def test_sdk_serializes_planned_coverage_as_strict_typed_cells() -> None:
     assert "additionalProperties" not in coverage
     assert set(requirement["required"]) == set(requirement["properties"])
     assert "default" not in requirement["properties"]["central_claim"]
+
+
+def test_requirement_discovery_schema_does_not_reveal_the_application_cap() -> None:
+    schema = type_to_text_format_param(ReviewRequirementDiscovery)["schema"]
+    requirement_list = schema["properties"]["manuscript_review_map"]
+    serialized = json.dumps(schema).lower()
+
+    assert requirement_list["type"] == "array"
+    assert "minItems" not in requirement_list
+    assert "maxItems" not in requirement_list
+    assert "cap" not in serialized
+    assert "retained" not in serialized
+    assert "discard" not in serialized

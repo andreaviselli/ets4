@@ -11,6 +11,7 @@ PLAIN_WRITING_INSTRUCTION = (
     "necessary. Use an informal style and tone while remaining objective."
 )
 SOURCE_HASHES = {
+    "requirement_discovery": "37ebd396140235bdf45df17622fe5a2bb4c2d2af5726674ba2b9cd310e149350",
     "initial_editor": "37ebd396140235bdf45df17622fe5a2bb4c2d2af5726674ba2b9cd310e149350",
     "referee": "47f90a97eefe0255d04a30d99a7fc3290cfe3a32ab42afb0d1aa26f8897b8aa0",
     "final_editor": "c092ed843f1d3139f5956a90112e15540f82142455dd30c124b8e9f01fa4cc50",
@@ -42,12 +43,32 @@ def test_initial_prompt_parameterizes_every_count_dependent_rule() -> None:
     assert "anticipate an editorial recommendation" in prompt
 
 
+def test_requirement_discovery_supports_exact_and_number_free_modes() -> None:
+    repository = PromptRepository()
+    exact = repository.render_requirement_discovery(3)
+    automatic = repository.render_requirement_discovery(None)
+
+    assert "exactly 3 principal review requirements" in exact
+    assert "Do not aim for a preset number" in automatic
+    assert "between five and eight" not in automatic
+    assert "10" not in automatic
+    assert "Order the requirements from most to least important" in automatic
+    assert "Do not design the referee panel yet" in automatic
+
+
 def test_referee_prompt_is_typed_and_profile_specific() -> None:
     prompt = PromptRepository().render_referee(profile())
     assert "referee-2" in prompt
     assert "Comparative predictive accuracy" in prompt
     assert "sample instability" in prompt
     assert "Do not assume that the manuscript is flawed" in prompt
+    assert "manuscript's own technical language" in prompt
+    assert "at least one concrete verbal or mathematical example" in prompt
+    assert "review every criticism a second time" in prompt
+    assert "Do not drop a criticism merely because some uncertainty remains" in prompt
+    assert "Do not search for or add external references" in prompt
+    assert "Do not give it a stylized title" in prompt
+    assert 'labelled parts such as "Concern" or "Affected claim or component"' in prompt
     assert "approximately two pages" in prompt
     assert "referee-1" not in prompt
 
@@ -55,6 +76,7 @@ def test_referee_prompt_is_typed_and_profile_specific() -> None:
 def test_all_stage_prompts_contain_injection_and_no_tools_boundary() -> None:
     repository = PromptRepository()
     prompts = [
+        repository.render_requirement_discovery(None),
         repository.render_initial_editor(4),
         repository.render_referee(profile()),
         repository.render_final_editor(4),
@@ -68,6 +90,7 @@ def test_all_stage_prompts_contain_injection_and_no_tools_boundary() -> None:
 def test_all_stage_prompts_use_plain_informal_objective_writing_instruction() -> None:
     repository = PromptRepository()
     prompts = [
+        repository.render_requirement_discovery(None),
         repository.render_initial_editor(4),
         repository.render_referee(profile()),
         repository.render_final_editor(4),
@@ -83,25 +106,26 @@ def test_final_prompt_preserves_synthesis_and_coverage_boundaries() -> None:
     assert "Do not introduce an independent catalogue of new criticisms" in prompt
     assert "not keyword occurrence" in prompt
     assert "must not introduce new criticisms" in prompt
-    assert "Where it applies" in prompt
-    assert "What is missing" in prompt
-    assert "Why it matters" in prompt
-    assert "What needs to change" in prompt
-    assert "Editor's view" in prompt
-    assert "one compact metadata line" in prompt
+    assert "manuscript's own technical language" in prompt
+    assert "translate the point gently" in prompt
+    assert "one natural prose passage of no more than 2,000 characters" in prompt
+    assert "Do not add a title, internal heading, labelled paragraph, or tags" in prompt
+    assert "Do not show these classifications as reader-facing tags" in prompt
+    assert "Do not add separate sections for principal strengths" in prompt
     assert "do not turn the reader-facing synthesis into a referee-by-referee list" in prompt
 
 
 def test_prompt_metadata_records_source_hashes() -> None:
     repository = PromptRepository()
-    for stage in ("initial_editor", "referee", "final_editor"):
+    for stage in ("requirement_discovery", "initial_editor", "referee", "final_editor"):
         metadata = repository.metadata(stage)  # type: ignore[arg-type]
+        version = repository.version_for(stage)  # type: ignore[arg-type]
         template = (
             files("ets4.prompts")
-            .joinpath("templates", stage, f"{repository.version}.txt")
+            .joinpath("templates", stage, f"{version}.txt")
             .read_bytes()
         )
-        assert metadata["version"] == "1.1.0"
+        assert metadata["version"] == version
         assert metadata["source_sha256"] == SOURCE_HASHES[stage]
         assert metadata["template_sha256"] == sha256(template).hexdigest()
 

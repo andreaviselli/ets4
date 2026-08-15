@@ -2,11 +2,11 @@
 
 ETS4 is an experimental AI review tool for economic time-series forecasting papers. It reads one complete manuscript, builds a paper-specific referee panel, runs each referee separately, and produces an editor's final report.
 
-ETS4 supports human peer review. It does not replace an editor or prove that a paper is correct.
+ETS4 supports human peer review. It does not replace a real referee but complements its work.
 
 ## How the review works
 
-1. The initial editor identifies five to eight main review needs and designs the requested referee panel.
+1. The initial editor identifies the requested number of review needs, or chooses freely in auto mode, and then designs the requested referee panel.
 2. Each referee receives the full PDF and only their own profile. Referees cannot see one another's profiles or reports.
 3. The final editor runs only after every referee report has been checked and saved. It combines the issues, makes a recommendation, and compares planned with actual coverage.
 
@@ -26,7 +26,7 @@ In Jupyter or IPython, use the kernel's `%pip` command, then restart the kernel 
 %pip install "git+https://github.com/andreaviselli/ets4.git"
 ```
 
-You can instead clone the repository and install the local checkout:
+Alternatively, you can clone the repository and install the local checkout:
 
 ```bash
 git clone https://github.com/andreaviselli/ets4.git
@@ -60,6 +60,7 @@ from ets4.workflow import ReviewWorkflow
 settings = ReviewSettings(
     provider="mock",
     referee_count=4,
+    review_requirement_count=None,  # auto: give the editor no number guidance
     output_dir=Path("runs"),
 )
 
@@ -84,6 +85,7 @@ settings = ReviewSettings(
     provider="openai",
     model="gpt-5.6",
     referee_count=4,
+    review_requirement_count=None,
     output_dir=Path("runs"),
 )
 
@@ -104,6 +106,7 @@ The mock provider checks the full workflow without API calls:
 ets4 review manuscript.pdf \
   --provider mock \
   --referees 4 \
+  --review-requirements auto \
   --output-dir ./runs
 ```
 
@@ -119,6 +122,7 @@ ets4 review manuscript.pdf \
   --provider openai \
   --model gpt-5.6 \
   --referees 4 \
+  --review-requirements auto \
   --output-dir ./runs
 ```
 
@@ -153,6 +157,8 @@ Copy [`config/ets4.example.toml`](config/ets4.example.toml) to the ignored path 
 
 The default panel has four referees. `--referees` accepts a positive number up to `max_referees`. The default limit is eight and the hard limit is twelve.
 
+Review-requirement discovery defaults to `auto`. In this mode, the initial editor receives no number or range. ETS4 keeps at most the first ten requirements, ordered by importance. If the editor returns more, ETS4 records a warning, excludes the later requirements from panel design and all later stages, and still completes the review. Use `--review-requirements N` to request an exact number from 1 through 10. The same setting is available as `review_requirement_count` in Python and TOML, and as `ETS4_REVIEW_REQUIREMENT_COUNT` in the environment.
+
 ## Run files
 
 Each `runs/RUN_ID/` directory contains:
@@ -162,6 +168,8 @@ run-manifest.json
 manuscript.pdf
 manuscript-metadata.json
 manuscript-pages.json
+review-requirements.json
+review-requirements.md
 initial-editor.json
 initial-editor.md
 referee-1.json
@@ -176,9 +184,13 @@ logs/raw/                 # only populated when raw retention is enabled
 
 The manifest records the manuscript hash and source, non-secret settings, prompt and model versions, stage progress, attempts, usage, failures, and file checksums. It never records an API key or hidden model reasoning.
 
+Markdown is the reader-facing report. Referee major comments and final-editor issues are plain prose without rigid labels or audit tags. JSON keeps extra audit data such as reviewer confidence, manuscript locations, issue classifications, and referee-specific reasoning.
+
 ## Manuscripts and privacy
 
 Manuscripts and reports may be confidential. Local runs copy the PDF and extracted text into the chosen output directory. Raw model responses are kept by default for local auditing; use `--no-retain-raw-responses` to disable that.
+
+When auto discovery returns more than ten requirements, only the optional raw discovery response contains the discarded requirement text. Checked JSON, panel design, referee prompts, and final-editor context contain only the retained requirements.
 
 The OpenAI adapter sends the PDF inline to the Responses API, asks for structured output, gives the model no tools, and sets `store=false` by default. This does not rule out all provider-side processing or safety retention. Read [`docs/DATA_AND_PRIVACY.md`](docs/DATA_AND_PRIVACY.md) before using confidential material.
 
@@ -193,6 +205,7 @@ Input rules:
 
 ## Documentation
 
+The complete documentation is provided to ease development with AI agents.
 Start with the [`docs` guide](docs/README.md). The main references are:
 
 - [`docs/REVIEW_PROTOCOL.md`](docs/REVIEW_PROTOCOL.md) — what each review stage may do;
@@ -219,7 +232,6 @@ Live provider tests are optional and off by default. The `evals/` directory cont
 ## Current limits
 
 - Model output varies between runs. Recorded settings help comparison but do not promise identical output.
-- Valid JSON does not prove that a review is intellectually sound.
 - The automated live test covers only the initial editor. Two full OpenAI reviews have also completed manually, but that does not guarantee success for every PDF or judgment.
 - `src/ets4/api/` contains future API shapes only. There is no hosted service, login, upload system, or job queue.
 - Markdown and JSON are the supported report formats.

@@ -1,0 +1,12 @@
+{
+  "stable_id": "ets4.initial-editor-requirements.v1",
+  "version": "1.0.0",
+  "title": "ETS4 Initial Editor Requirement Discovery",
+  "source_sha256": "37ebd396140235bdf45df17622fe5a2bb4c2d2af5726674ba2b9cd310e149350",
+  "template_sha256": "d62ab229e6b9b48ebf566259fe32eefec2dbf5836c82cd7c733754711bfc5543",
+  "changes": [
+    "Split neutral review-requirement discovery from referee-panel construction.",
+    "Added exact-count and number-free rendering modes without exposing the application cap.",
+    "Preserved the initial-editor neutrality, manuscript, security, and writing boundaries."
+  ]
+}

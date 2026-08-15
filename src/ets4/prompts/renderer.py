@@ -9,9 +9,15 @@ from typing import Any, Literal, cast
 from pydantic import BaseModel, ConfigDict, Field
 
 from ets4.domain.schemas import RefereeProfile
+from ets4.limits import MAX_REVIEW_REQUIREMENTS
 
-PROMPT_VERSION = "1.1.0"
-StageName = Literal["initial_editor", "referee", "final_editor"]
+DEFAULT_PROMPT_VERSIONS = {
+    "requirement_discovery": "1.0.0",
+    "initial_editor": "1.2.0",
+    "referee": "1.2.0",
+    "final_editor": "1.2.0",
+}
+StageName = Literal["requirement_discovery", "initial_editor", "referee", "final_editor"]
 
 
 class PromptRenderingError(ValueError):
@@ -21,6 +27,13 @@ class PromptRenderingError(ValueError):
 class InitialEditorContext(BaseModel):
     model_config = ConfigDict(extra="forbid")
     referee_count: int = Field(ge=1, le=12)
+
+
+class RequirementDiscoveryContext(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    review_requirement_count: int | None = Field(
+        default=None, ge=1, le=MAX_REVIEW_REQUIREMENTS
+    )
 
 
 class RefereeContext(BaseModel):
@@ -41,19 +54,31 @@ class _StrictFormatMap(dict[str, Any]):
 class PromptRepository:
     """Load immutable packaged prompt assets and render them in one place."""
 
-    def __init__(self, version: str = PROMPT_VERSION) -> None:
+    def __init__(self, version: str | None = None) -> None:
         self.version = version
+        self._versions = (
+            {
+                "initial_editor": version,
+                "referee": version,
+                "final_editor": version,
+            }
+            if version is not None
+            else dict(DEFAULT_PROMPT_VERSIONS)
+        )
         self._root = files("ets4.prompts").joinpath("templates")
 
     def versions(self) -> dict[str, str]:
-        return {
-            "initial_editor": self.version,
-            "referee": self.version,
-            "final_editor": self.version,
-        }
+        return dict(self._versions)
+
+    def version_for(self, stage: StageName) -> str:
+        try:
+            return self._versions[stage]
+        except KeyError as exc:
+            raise PromptRenderingError(f"prompt stage is unavailable: {stage}") from exc
 
     def metadata(self, stage: StageName) -> dict[str, Any]:
-        resource = self._root.joinpath(stage, f"{self.version}.json")
+        version = self.version_for(stage)
+        resource = self._root.joinpath(stage, f"{version}.json")
         try:
             value = json.loads(resource.read_text(encoding="utf-8"))
             if not isinstance(value, dict):
@@ -61,17 +86,36 @@ class PromptRepository:
             return cast(dict[str, Any], value)
         except (FileNotFoundError, json.JSONDecodeError) as exc:
             raise PromptRenderingError(
-                f"invalid prompt metadata for {stage} {self.version}"
+                f"invalid prompt metadata for {stage} {version}"
             ) from exc
 
     def _template(self, stage: StageName) -> str:
-        resource = self._root.joinpath(stage, f"{self.version}.txt")
+        version = self.version_for(stage)
+        resource = self._root.joinpath(stage, f"{version}.txt")
         try:
             return resource.read_text(encoding="utf-8")
         except FileNotFoundError as exc:
             raise PromptRenderingError(
-                f"missing prompt template for {stage} {self.version}"
+                f"missing prompt template for {stage} {version}"
             ) from exc
+
+    def render_requirement_discovery(self, review_requirement_count: int | None) -> str:
+        context = RequirementDiscoveryContext(
+            review_requirement_count=review_requirement_count
+        )
+        if context.review_requirement_count is None:
+            instruction = (
+                "Identify all principal review requirements you independently judge important. "
+                "Do not aim for a preset number."
+            )
+        else:
+            instruction = (
+                f"Identify exactly {context.review_requirement_count} principal review "
+                "requirements."
+            )
+        return self._template("requirement_discovery").format_map(
+            _StrictFormatMap(requirement_count_instruction=instruction)
+        )
 
     def render_initial_editor(self, referee_count: int) -> str:
         context = InitialEditorContext(referee_count=referee_count)

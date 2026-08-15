@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ets4.cli import main
 from ets4.config import ReviewSettings
+from ets4.domain.schemas import ReviewRequirementSelection
 from ets4.providers.base import ProviderError, StageRequest
 from ets4.providers.mock import MockProvider
 from ets4.workflow.engine import ReviewWorkflow
@@ -54,6 +55,8 @@ def test_cli_review_status_and_provider_listing(
             "mock",
             "--referees",
             "2",
+            "--review-requirements",
+            "3",
             "--output-dir",
             str(runs),
         ]
@@ -63,6 +66,10 @@ def test_cli_review_status_and_provider_listing(
     run_id = captured.out.strip()
     assert run_id.startswith("run-")
     assert "Stage 1/3" in captured.err
+    selection = ReviewRequirementSelection.model_validate_json(
+        (runs / run_id / "review-requirements.json").read_text()
+    )
+    assert selection.identified_count == 3
     assert main(["status", run_id, "--output-dir", str(runs)]) == 0
     status = capsys.readouterr().out
     assert "State: completed" in status

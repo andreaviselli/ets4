@@ -10,6 +10,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ets4.limits import MAX_REVIEW_REQUIREMENTS
+
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -51,10 +53,56 @@ class ReviewerConfidence(str, Enum):
 
 
 class ManuscriptRequirement(StrictModel):
-    requirement_id: Annotated[str, Field(pattern=r"^requirement-[1-8]$")]
+    requirement_id: Annotated[str, Field(pattern=r"^requirement-[1-9][0-9]*$")]
     component_or_claim: Annotated[str, Field(min_length=3)]
     review_scope: Annotated[str, Field(min_length=10)]
     central_claim: bool
+
+
+class ReviewRequirementDiscovery(StrictModel):
+    """Ordered initial-editor review requirements returned by a provider."""
+
+    manuscript_review_map: list[ManuscriptRequirement]
+
+    @model_validator(mode="after")
+    def validate_ordered_requirements(self) -> ReviewRequirementDiscovery:
+        if not self.manuscript_review_map:
+            raise ValueError("the initial editor must identify at least one review requirement")
+        expected = [
+            f"requirement-{index}" for index in range(1, len(self.manuscript_review_map) + 1)
+        ]
+        actual = [item.requirement_id for item in self.manuscript_review_map]
+        if actual != expected:
+            raise ValueError("review requirements must be ordered and numbered contiguously")
+        return self
+
+
+class ReviewRequirementSelection(StrictModel):
+    """Canonical retained requirements; discarded text remains only in optional raw output."""
+
+    identified_count: Annotated[int, Field(ge=1)]
+    retained_requirements: Annotated[
+        list[ManuscriptRequirement],
+        Field(min_length=1, max_length=MAX_REVIEW_REQUIREMENTS),
+    ]
+    discarded_requirement_ids: list[str]
+
+    @model_validator(mode="after")
+    def validate_selection(self) -> ReviewRequirementSelection:
+        retained_count = len(self.retained_requirements)
+        if self.identified_count != retained_count + len(self.discarded_requirement_ids):
+            raise ValueError("identified count must equal retained plus discarded requirements")
+        retained_ids = [item.requirement_id for item in self.retained_requirements]
+        expected_retained = [f"requirement-{index}" for index in range(1, retained_count + 1)]
+        if retained_ids != expected_retained:
+            raise ValueError("retained requirements must be the first contiguous requirements")
+        expected_discarded = [
+            f"requirement-{index}"
+            for index in range(retained_count + 1, self.identified_count + 1)
+        ]
+        if self.discarded_requirement_ids != expected_discarded:
+            raise ValueError("discarded requirement identifiers must follow the retained set")
+        return self
 
 
 class RefereeProfile(StrictModel):
@@ -96,14 +144,16 @@ class PanelAssessment(StrictModel):
 
 
 class EditorPanelDesign(StrictModel):
-    manuscript_review_map: Annotated[list[ManuscriptRequirement], Field(min_length=5, max_length=8)]
+    manuscript_review_map: list[ManuscriptRequirement]
     requested_referee_count: Annotated[int, Field(ge=1, le=12)]
     referee_profiles: Annotated[list[RefereeProfile], Field(min_length=1, max_length=12)]
-    planned_coverage_matrix: Annotated[list[PlannedCoverageRow], Field(min_length=5, max_length=8)]
+    planned_coverage_matrix: list[PlannedCoverageRow]
     panel_assessment: PanelAssessment
 
     @model_validator(mode="after")
     def validate_panel_design(self) -> EditorPanelDesign:
+        if not self.manuscript_review_map:
+            raise ValueError("the panel design must include at least one review requirement")
         if len(self.referee_profiles) != self.requested_referee_count:
             raise ValueError("referee profile count must equal requested_referee_count")
 
@@ -114,12 +164,23 @@ class EditorPanelDesign(StrictModel):
         if actual_referees != expected_referees:
             raise ValueError("referee identifiers must be contiguous from referee-1")
 
+        expected_requirements = [
+            f"requirement-{index}" for index in range(1, len(self.manuscript_review_map) + 1)
+        ]
+        actual_requirement_order = [
+            item.requirement_id for item in self.manuscript_review_map
+        ]
+        if actual_requirement_order != expected_requirements:
+            raise ValueError("review requirements must be ordered and numbered contiguously")
+
         requirements = {item.requirement_id: item for item in self.manuscript_review_map}
         if len(requirements) != len(self.manuscript_review_map):
             raise ValueError("manuscript requirement identifiers must be unique")
-        matrix_requirements = {row.requirement_id for row in self.planned_coverage_matrix}
-        if matrix_requirements != set(requirements):
-            raise ValueError("coverage matrix rows must exactly match the manuscript review map")
+        matrix_requirement_order = [row.requirement_id for row in self.planned_coverage_matrix]
+        if matrix_requirement_order != expected_requirements:
+            raise ValueError(
+                "coverage matrix rows must exactly match the ordered manuscript review map"
+            )
 
         for row in self.planned_coverage_matrix:
             coverage = row.coverage_by_referee()
@@ -146,10 +207,7 @@ class HarmonizedAnswers(StrictModel):
 
 
 class RefereeComment(StrictModel):
-    title: Annotated[str, Field(min_length=3)]
-    concern: Annotated[str, Field(min_length=10)]
-    affected_claim_or_component: Annotated[str, Field(min_length=3)]
-    reasoning: Annotated[str, Field(min_length=10)]
+    comment: Annotated[str, Field(min_length=20)]
     manuscript_locations: list[str]
 
 
@@ -203,18 +261,13 @@ class RefereeReasoning(StrictModel):
 
 
 class SynthesizedIssue(StrictModel):
-    issue: Annotated[str, Field(min_length=5)]
-    claim_or_component_affected: Annotated[str, Field(min_length=3)]
-    what_is_missing: Annotated[str, Field(min_length=10)]
-    why_it_matters: Annotated[str, Field(min_length=10)]
-    what_needs_to_change: Annotated[str, Field(min_length=5)]
+    comment: Annotated[str, Field(min_length=20, max_length=2000)]
     panel_status: FindingStatus
     referee_reasoning: Annotated[list[RefereeReasoning], Field(min_length=1)]
     validity: ValidityAssessment
     centrality: Centrality
     severity: Severity
     correctability: Correctability
-    adjudication: Annotated[str, Field(min_length=5)]
 
 
 class PanelFinding(StrictModel):
@@ -258,12 +311,21 @@ class RealizedCoverageRow(StrictModel):
 
 
 class CoverageAppendix(StrictModel):
-    rows: Annotated[list[RealizedCoverageRow], Field(min_length=5, max_length=8)]
+    rows: list[RealizedCoverageRow]
     dimensions_covered_as_planned: list[str]
     under_covered_dimensions: list[str]
     substantial_unplanned_contributions: list[str]
     excessive_overlap: list[str]
     functional_differentiation_assessment: Annotated[str, Field(min_length=10)]
+
+    @model_validator(mode="after")
+    def validate_rows(self) -> CoverageAppendix:
+        if not self.rows:
+            raise ValueError("the coverage appendix must include at least one row")
+        requirement_ids = [row.requirement_id for row in self.rows]
+        if len(requirement_ids) != len(set(requirement_ids)):
+            raise ValueError("coverage appendix requirement identifiers must be unique")
+        return self
 
 
 class FinalEditorDecision(StrictModel):
@@ -273,10 +335,6 @@ class FinalEditorDecision(StrictModel):
     consensus_findings: list[PanelFinding]
     specialist_contributions: list[PanelFinding]
     disagreements_and_adjudications: list[Disagreement]
-    principal_strengths: Annotated[list[str], Field(min_length=1)]
-    decision_determining_issues: Annotated[list[str], Field(min_length=1)]
-    essential_revisions: list[str]
-    desirable_nonessential_improvements: list[str]
     final_recommendation: FinalRecommendation
     recommendation_justification: Annotated[str, Field(min_length=20)]
     coverage_appendix: CoverageAppendix
@@ -286,6 +344,7 @@ def structured_output_schema_hashes() -> dict[str, str]:
     """Hash provider-facing schemas so resume cannot silently cross schema revisions."""
 
     models: dict[str, type[BaseModel]] = {
+        "requirement_discovery": ReviewRequirementDiscovery,
         "initial_editor": EditorPanelDesign,
         "referee": RefereeReport,
         "final_editor": FinalEditorDecision,
@@ -301,6 +360,7 @@ def structured_output_schema_hashes() -> dict[str, str]:
 class WorkflowState(str, Enum):
     MANUSCRIPT_RECEIVED = "manuscript_received"
     MANUSCRIPT_NORMALIZED = "manuscript_normalized"
+    REVIEW_REQUIREMENTS_COMPLETED = "review_requirements_completed"
     INITIAL_EDITOR_COMPLETED = "initial_editor_completed"
     REFEREE_JOBS_CREATED = "referee_jobs_created"
     REFEREES_IN_PROGRESS = "referee_reports_in_progress"
@@ -333,8 +393,15 @@ class StageRecord(StrictModel):
     usage: dict[str, Any] = Field(default_factory=dict)
 
 
+class RunWarning(StrictModel):
+    code: Annotated[str, Field(min_length=3)]
+    stage: Annotated[str, Field(min_length=3)]
+    message: Annotated[str, Field(min_length=5)]
+    details: dict[str, int | str | list[str]] = Field(default_factory=dict)
+
+
 class RunManifest(StrictModel):
-    schema_version: Literal["1.0"] = "1.0"
+    schema_version: Literal["1.0", "1.1"] = "1.1"
     run_id: str
     input_fingerprint: str
     manuscript_sha256: str
@@ -349,4 +416,5 @@ class RunManifest(StrictModel):
     stages: dict[str, StageRecord]
     completed_stages: list[str] = Field(default_factory=list)
     failed_stages: list[str] = Field(default_factory=list)
+    warnings: list[RunWarning] = Field(default_factory=list)
     cancellation_requested: bool = False

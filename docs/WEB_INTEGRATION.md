@@ -63,7 +63,7 @@ GET  /v1/reviews/{run_id}/artifacts
 GET  /v1/providers
 ```
 
-`POST /v1/reviews` would accept either a server-issued upload token or an approved manuscript URL, plus provider, model, and panel size. It would return `202 Accepted`, a run ID, and a status URL. It must never accept a provider key from browser code.
+`POST /v1/reviews` would accept either a server-issued upload token or an approved manuscript URL, plus provider, model, panel size, and an optional exact review-requirement count. A null count means auto mode. It would return `202 Accepted`, a run ID, and a status URL. It must never accept a provider key from browser code.
 
 Status would show progress and whether the run can resume. The file list would return short-lived protected links with media type and checksum. Website code would use JSON over HTTPS and never import the ETS4 Python package.
 

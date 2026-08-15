@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 
+from ets4.limits import MAX_REVIEW_REQUIREMENTS
+
 
 class ApiModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -17,6 +19,9 @@ class CreateReviewRequest(ApiModel):
     provider: Literal["openai", "mock"] = "openai"
     model: str
     referee_count: int = Field(default=4, ge=1, le=12)
+    review_requirement_count: int | None = Field(
+        default=None, ge=1, le=MAX_REVIEW_REQUIREMENTS
+    )
 
     @model_validator(mode="after")
     def require_exactly_one_manuscript_source(self) -> CreateReviewRequest:

@@ -3,7 +3,19 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from ets4.domain.schemas import EditorPanelDesign, HarmonizedAnswers, RefereeReport
+from ets4.domain.schemas import (
+    Centrality,
+    Correctability,
+    EditorPanelDesign,
+    FindingStatus,
+    HarmonizedAnswers,
+    RefereeReasoning,
+    RefereeReport,
+    ReviewRequirementDiscovery,
+    Severity,
+    SynthesizedIssue,
+    ValidityAssessment,
+)
 from ets4.prompts.renderer import PromptRepository
 from ets4.providers.base import StageRequest
 from ets4.providers.mock import MockProvider
@@ -46,6 +58,18 @@ def test_harmonized_answers_reject_values_outside_enum() -> None:
         )
 
 
+def test_requirement_discovery_accepts_more_than_ten_ordered_requirements() -> None:
+    discovery = ReviewRequirementDiscovery(
+        manuscript_review_map=MockProvider._requirements_for_count(12)
+    )
+    assert len(discovery.manuscript_review_map) == 12
+
+    payload = discovery.model_dump(mode="json")
+    payload["manuscript_review_map"][10]["requirement_id"] = "requirement-12"
+    with pytest.raises(ValidationError, match="ordered and numbered contiguously"):
+        ReviewRequirementDiscovery.model_validate(payload)
+
+
 def test_referee_recommendation_enum_rejects_final_editor_only_value(manuscript) -> None:
     provider = MockProvider()
     panel = provider.generate(
@@ -73,3 +97,22 @@ def test_referee_recommendation_enum_rejects_final_editor_only_value(manuscript)
     report["recommendation"] = "Reject and resubmit"
     with pytest.raises(ValidationError):
         RefereeReport.model_validate(report)
+
+
+def test_final_editor_comment_has_a_two_thousand_character_limit() -> None:
+    values = {
+        "comment": "x" * 2000,
+        "panel_status": FindingStatus.SPECIALIST,
+        "referee_reasoning": [
+            RefereeReasoning(referee_id="referee-1", reasoning="Grounded reasoning.")
+        ],
+        "validity": ValidityAssessment.SUPPORTED,
+        "centrality": Centrality.HIGH,
+        "severity": Severity.MAJOR,
+        "correctability": Correctability.YES,
+    }
+    assert len(SynthesizedIssue.model_validate(values).comment) == 2000
+
+    values["comment"] = "x" * 2001
+    with pytest.raises(ValidationError, match="at most 2000 characters"):
+        SynthesizedIssue.model_validate(values)

@@ -18,7 +18,10 @@ from ets4.domain.schemas import (
     EditorPanelDesign,
     FinalEditorDecision,
     RefereeReport,
+    ReviewRequirementDiscovery,
+    ReviewRequirementSelection,
     RunManifest,
+    RunWarning,
     StageRecord,
     StageStatus,
     WorkflowState,
@@ -26,9 +29,15 @@ from ets4.domain.schemas import (
 )
 from ets4.ingestion.models import ManuscriptPackage
 from ets4.ingestion.pdf import ManuscriptIngestor
+from ets4.limits import MAX_REVIEW_REQUIREMENTS
 from ets4.prompts.renderer import PromptRepository
 from ets4.providers.base import Provider, ProviderError, ProviderResult, StageRequest
-from ets4.rendering.markdown import render_final_editor, render_initial_editor, render_referee
+from ets4.rendering.markdown import (
+    render_final_editor,
+    render_initial_editor,
+    render_referee,
+    render_review_requirements,
+)
 from ets4.storage.run_store import RunStore, redact_secrets
 
 ProgressCallback = Callable[[str], None]
@@ -95,6 +104,7 @@ class ReviewWorkflow:
         )
         now = datetime.now(UTC)
         stages = {
+            "requirement-discovery": StageRecord(),
             "initial-editor": StageRecord(),
             **{
                 f"referee-{index}": StageRecord()
@@ -166,7 +176,13 @@ class ReviewWorkflow:
         if self._cancel_if_requested(manifest):
             return manifest
 
-        panel = self._recover_or_run_initial_editor(manifest, manuscript)
+        requirements = self._recover_or_run_requirement_discovery(manifest, manuscript)
+        if requirements is None:
+            return manifest
+        if self._cancel_if_requested(manifest):
+            return manifest
+
+        panel = self._recover_or_run_initial_editor(manifest, manuscript, requirements)
         if panel is None:
             return manifest
         if self._cancel_if_requested(manifest):
@@ -187,17 +203,109 @@ class ReviewWorkflow:
         self._render_completion_artifacts(manifest, panel, reports, decision)
         return manifest
 
-    def _recover_or_run_initial_editor(
+    def _recover_or_run_requirement_discovery(
         self, manifest: RunManifest, manuscript: ManuscriptPackage
+    ) -> ReviewRequirementSelection | None:
+        stage = "requirement-discovery"
+        recovered = self._recover_json_artifact(
+            manifest,
+            stage,
+            "review-requirements.json",
+            ReviewRequirementSelection,
+        )
+        if recovered is not None:
+            warning = self._ensure_requirement_warning(manifest, recovered)
+            if warning is not None:
+                self._save(
+                    manifest,
+                    "warning_recovered",
+                    code=warning.code,
+                    **warning.details,
+                )
+                self.progress(f"Warning: {warning.message}")
+            return recovered
+
+        count = self.settings.review_requirement_count
+        mode = "auto" if count is None else f"exactly {count}"
+        self.progress(f"Stage 1/3, step 1/2: identifying review requirements ({mode})")
+        record = manifest.stages[stage]
+        record.status = StageStatus.IN_PROGRESS
+        record.started_at = datetime.now(UTC)
+        record.error = None
+        record.error_details = {}
+        self._save(manifest, "stage_started", stage=stage)
+        request = StageRequest(
+            stage="requirement_discovery",
+            agent_id="initial-editor-requirements",
+            model=self.settings.model_for_stage("initial_editor"),
+            prompt=self.prompts.render_requirement_discovery(count),
+            manuscript=manuscript,
+            response_model=ReviewRequirementDiscovery,
+            metadata={"review_requirement_count": count},
+        )
+        try:
+            outcome = self._call_with_bounds(request)
+            discovery = ReviewRequirementDiscovery.model_validate(outcome.result.parsed)
+            identified_count = len(discovery.manuscript_review_map)
+            if count is not None and identified_count != count:
+                raise StageExecutionError(
+                    "initial editor returned the wrong review requirement count",
+                    attempts=outcome.attempts,
+                    invalid_raw_responses=outcome.invalid_raw_responses,
+                )
+
+            retained_count = min(identified_count, MAX_REVIEW_REQUIREMENTS)
+            selection = ReviewRequirementSelection(
+                identified_count=identified_count,
+                retained_requirements=discovery.manuscript_review_map[:retained_count],
+                discarded_requirement_ids=[
+                    item.requirement_id
+                    for item in discovery.manuscript_review_map[retained_count:]
+                ],
+            )
+            warning = self._ensure_requirement_warning(manifest, selection)
+            self._write_stage_artifacts(
+                manifest,
+                stage,
+                "review-requirements",
+                selection,
+                render_review_requirements(selection),
+                outcome,
+            )
+            manifest.workflow_state = WorkflowState.REVIEW_REQUIREMENTS_COMPLETED
+            stage_fields: dict[str, Any] = {"stage": stage}
+            if warning is not None:
+                stage_fields["warning_code"] = warning.code
+                stage_fields.update(warning.details)
+            self._save(manifest, "stage_completed", **stage_fields)
+            if warning is not None:
+                self._save(
+                    manifest,
+                    "warning_emitted",
+                    code=warning.code,
+                    **warning.details,
+                )
+                self.progress(f"Warning: {warning.message}")
+            return selection
+        except StageExecutionError as exc:
+            self._fail_stage(manifest, stage, exc)
+            return None
+
+    def _recover_or_run_initial_editor(
+        self,
+        manifest: RunManifest,
+        manuscript: ManuscriptPackage,
+        requirements: ReviewRequirementSelection,
     ) -> EditorPanelDesign | None:
         stage = "initial-editor"
         recovered = self._recover_json_artifact(
             manifest, stage, "initial-editor.json", EditorPanelDesign
         )
         if recovered is not None:
+            self._validate_panel_requirements(requirements, recovered)
             return recovered
 
-        self.progress("Stage 1/3: designing the targeted referee panel")
+        self.progress("Stage 1/3, step 2/2: designing the targeted referee panel")
         record = manifest.stages[stage]
         record.status = StageStatus.IN_PROGRESS
         record.started_at = datetime.now(UTC)
@@ -211,7 +319,16 @@ class ReviewWorkflow:
             prompt=self.prompts.render_initial_editor(self.settings.referee_count),
             manuscript=manuscript,
             response_model=EditorPanelDesign,
-            metadata={"referee_count": self.settings.referee_count},
+            supplemental_context={
+                "review_requirements": [
+                    item.model_dump(mode="json")
+                    for item in requirements.retained_requirements
+                ]
+            },
+            metadata={
+                "referee_count": self.settings.referee_count,
+                "review_requirement_count": len(requirements.retained_requirements),
+            },
         )
         try:
             outcome = self._call_with_bounds(request)
@@ -222,12 +339,20 @@ class ReviewWorkflow:
                     attempts=outcome.attempts,
                     invalid_raw_responses=outcome.invalid_raw_responses,
                 )
+            try:
+                self._validate_panel_requirements(requirements, panel)
+            except WorkflowError as exc:
+                raise StageExecutionError(
+                    str(exc),
+                    attempts=outcome.attempts,
+                    invalid_raw_responses=outcome.invalid_raw_responses,
+                ) from exc
             self._write_stage_artifacts(
                 manifest,
                 stage,
                 "initial-editor",
                 panel,
-                render_initial_editor(panel),
+                render_initial_editor(panel, manifest.warnings),
                 outcome,
             )
             manifest.workflow_state = WorkflowState.INITIAL_EDITOR_COMPLETED
@@ -383,7 +508,7 @@ class ReviewWorkflow:
                 stage,
                 "final-editor",
                 decision,
-                render_final_editor(decision),
+                render_final_editor(decision, manifest.warnings),
                 outcome,
             )
             manifest.workflow_state = WorkflowState.FINAL_EDITOR_COMPLETED
@@ -412,10 +537,14 @@ class ReviewWorkflow:
             record.started_at = datetime.now(UTC)
             checksums = {
                 "initial-editor.md": self.store.write_text(
-                    manifest.run_id, "initial-editor.md", render_initial_editor(panel)
+                    manifest.run_id,
+                    "initial-editor.md",
+                    render_initial_editor(panel, manifest.warnings),
                 ),
                 "final-editor.md": self.store.write_text(
-                    manifest.run_id, "final-editor.md", render_final_editor(decision)
+                    manifest.run_id,
+                    "final-editor.md",
+                    render_final_editor(decision, manifest.warnings),
                 ),
             }
             for report in reports:
@@ -592,6 +721,42 @@ class ReviewWorkflow:
             error_details=manifest.stages[stage].error_details,
         )
         self.progress(f"Stage requires retry: {stage}")
+
+    @staticmethod
+    def _validate_panel_requirements(
+        selection: ReviewRequirementSelection, panel: EditorPanelDesign
+    ) -> None:
+        if panel.manuscript_review_map != selection.retained_requirements:
+            raise WorkflowError(
+                "initial editor changed the application-retained review requirements"
+            )
+
+    @staticmethod
+    def _ensure_requirement_warning(
+        manifest: RunManifest, selection: ReviewRequirementSelection
+    ) -> RunWarning | None:
+        if not selection.discarded_requirement_ids:
+            return None
+        code = "review_requirements_truncated"
+        if any(warning.code == code for warning in manifest.warnings):
+            return None
+        retained_count = len(selection.retained_requirements)
+        warning = RunWarning(
+            code=code,
+            stage="requirement-discovery",
+            message=(
+                f"The initial editor identified {selection.identified_count} review "
+                f"requirements. ETS4 retained the first {retained_count}; later requirements "
+                "were excluded from panel design and all later stages."
+            ),
+            details={
+                "identified_count": selection.identified_count,
+                "retained_count": retained_count,
+                "discarded_requirement_ids": selection.discarded_requirement_ids,
+            },
+        )
+        manifest.warnings.append(warning)
+        return warning
 
     @staticmethod
     def _validate_final_coverage(panel: EditorPanelDesign, decision: FinalEditorDecision) -> None:

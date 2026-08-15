@@ -44,7 +44,7 @@ A hosted upload service would also need malware scanning, its own file-type chec
 
 ## Cost and overload
 
-ETS4 limits file size, PDF pages, referee count, parallel calls, context, output tokens, time, retries, and repair attempts. The default referee limit is eight; the hard code limit is twelve. A hosted service would also need login, user quotas, rate limits, budgets, and abuse monitoring.
+ETS4 limits file size, PDF pages, referee count, retained review requirements, parallel calls, context, output tokens, time, retries, and repair attempts. The default referee limit is eight; the hard code limit is twelve. Exact review-requirement choices are limited to ten. Auto discovery has no model-visible limit, but the application retains only the first ten before panel design. A hosted service would also need login, user quotas, rate limits, budgets, and abuse monitoring.
 
 ## Cancellation
 

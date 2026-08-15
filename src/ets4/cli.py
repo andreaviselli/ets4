@@ -16,6 +16,7 @@ from ets4.config import (
 )
 from ets4.domain.schemas import WorkflowState
 from ets4.ingestion.pdf import ManuscriptIngestionError
+from ets4.limits import MAX_REVIEW_REQUIREMENTS
 from ets4.providers.factory import build_provider, provider_descriptions
 from ets4.providers.mock import MockProvider
 from ets4.storage.run_store import RunStore, RunStoreError, redact_secrets
@@ -32,6 +33,20 @@ def _common_run_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--config", type=Path, help="local ETS4 TOML configuration")
 
 
+def _review_requirement_count(value: str) -> int | str:
+    if value.strip().lower() == "auto":
+        return "auto"
+    try:
+        count = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("use 'auto' or a positive integer") from exc
+    if not 1 <= count <= MAX_REVIEW_REQUIREMENTS:
+        raise argparse.ArgumentTypeError(
+            f"review requirements must be between 1 and {MAX_REVIEW_REQUIREMENTS}"
+        )
+    return count
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ets4",
@@ -45,6 +60,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _common_run_options(review)
     review.add_argument("--referees", type=int, dest="referee_count", help="requested panel size")
+    review.add_argument(
+        "--review-requirements",
+        type=_review_requirement_count,
+        dest="review_requirement_count",
+        metavar="COUNT|auto",
+        help=(
+            "exact number of Stage 1 review requirements, or auto for no number guidance "
+            f"(exact maximum: {MAX_REVIEW_REQUIREMENTS})"
+        ),
+    )
     review.add_argument("--max-referees", type=int, help="cost-control ceiling (hard maximum: 12)")
     review.add_argument("--max-concurrency", type=int, help="maximum simultaneous referee calls")
     review.add_argument(
@@ -72,6 +97,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _common_run_options(validate)
     validate.add_argument("--referees", type=int, dest="referee_count")
+    validate.add_argument(
+        "--review-requirements",
+        type=_review_requirement_count,
+        dest="review_requirement_count",
+        metavar="COUNT|auto",
+    )
 
     subparsers.add_parser("providers", help="list implemented provider capabilities")
     return parser
@@ -86,6 +117,7 @@ def _cli_overrides(arguments: argparse.Namespace) -> dict[str, Any]:
         "referee_model",
         "final_editor_model",
         "referee_count",
+        "review_requirement_count",
         "max_referees",
         "max_concurrency",
         "retain_raw_responses",
@@ -126,6 +158,7 @@ def main(argv: list[str] | None = None) -> int:
                 "workflow_state": manifest.workflow_state.value,
                 "completed_stages": manifest.completed_stages,
                 "failed_stages": manifest.failed_stages,
+                "warnings": [warning.model_dump(mode="json") for warning in manifest.warnings],
                 "stages": {
                     name: {
                         "status": record.status.value,
@@ -143,6 +176,8 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"State: {manifest.workflow_state.value}")
                 print("Completed: " + (", ".join(manifest.completed_stages) or "none"))
                 print("Failed: " + (", ".join(manifest.failed_stages) or "none"))
+                for warning in manifest.warnings:
+                    print(f"Warning: {warning.message}")
                 for stage in manifest.failed_stages:
                     record = manifest.stages[stage]
                     print(f"Failure {stage}: {record.error or 'unknown error'}")

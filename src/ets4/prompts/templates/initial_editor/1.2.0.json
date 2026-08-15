@@ -1,0 +1,12 @@
+{
+  "stable_id": "ets4.initial-editor-panel.v2",
+  "version": "1.2.0",
+  "title": "ETS4 Initial Editor Panel Design",
+  "source_sha256": "37ebd396140235bdf45df17622fe5a2bb4c2d2af5726674ba2b9cd310e149350",
+  "template_sha256": "85812e6ab44d71bb28e479c1ff3c69e8e4ce552f977b3d21961361925139a2e5",
+  "changes": [
+    "Moved neutral review-requirement discovery into a separate first call.",
+    "Required panel construction to use only the application-retained requirements.",
+    "Preserved the original panel-selection, editorial, security, and writing boundaries."
+  ]
+}

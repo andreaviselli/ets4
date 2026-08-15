@@ -29,6 +29,7 @@ from ets4.domain.schemas import (
     RefereeRecommendation,
     RefereeReport,
     ReviewerConfidence,
+    ReviewRequirementDiscovery,
     Severity,
     SynthesizedIssue,
     ValidityAssessment,
@@ -79,12 +80,15 @@ class MockProvider(Provider):
                     "agent_id": request.agent_id,
                     "prompt": request.prompt,
                     "supplemental_context": request.supplemental_context,
+                    "metadata": request.metadata,
                     "manuscript_sha256": request.manuscript.metadata.sha256,
                 }
             )
 
-        if request.response_model is EditorPanelDesign:
-            output: Any = self._panel(request)
+        if request.response_model is ReviewRequirementDiscovery:
+            output: Any = self._requirements(request)
+        elif request.response_model is EditorPanelDesign:
+            output = self._panel(request)
         elif request.response_model is RefereeReport:
             output = self._referee(request)
         elif request.response_model is FinalEditorDecision:
@@ -102,16 +106,22 @@ class MockProvider(Provider):
         )
 
     @staticmethod
-    def _panel(request: StageRequest[Any]) -> EditorPanelDesign:
-        count = int(request.metadata["referee_count"])
-        requirement_names = [
+    def _requirements_for_count(count: int) -> list[ManuscriptRequirement]:
+        base_names = [
             "Central forecasting claim",
             "Methodological design",
             "Forecast evaluation and inference",
             "Data and empirical application",
             "Interpretation, limitations, and reproducibility",
         ]
-        requirements = [
+        requirement_names = [
+            *base_names,
+            *[
+                f"Additional manuscript-specific review dimension {index}"
+                for index in range(len(base_names) + 1, count + 1)
+            ],
+        ][:count]
+        return [
             ManuscriptRequirement(
                 requirement_id=f"requirement-{index}",
                 component_or_claim=name,
@@ -122,6 +132,24 @@ class MockProvider(Provider):
             )
             for index, name in enumerate(requirement_names, start=1)
         ]
+
+    @classmethod
+    def _requirements(cls, request: StageRequest[Any]) -> ReviewRequirementDiscovery:
+        configured_count = request.metadata.get("review_requirement_count")
+        count = int(configured_count) if configured_count is not None else 5
+        return ReviewRequirementDiscovery(
+            manuscript_review_map=cls._requirements_for_count(count)
+        )
+
+    @classmethod
+    def _panel(cls, request: StageRequest[Any]) -> EditorPanelDesign:
+        count = int(request.metadata["referee_count"])
+        supplied_requirements = request.supplemental_context.get("review_requirements")
+        requirements = (
+            [ManuscriptRequirement.model_validate(item) for item in supplied_requirements]
+            if supplied_requirements is not None
+            else cls._requirements_for_count(5)
+        )
         profiles = [
             RefereeProfile(
                 referee_id=f"referee-{index}",
@@ -203,12 +231,11 @@ class MockProvider(Provider):
             ),
             major_comments=[
                 RefereeComment(
-                    title="Mock workflow comment",
-                    concern="A live specialist must evaluate the assigned manuscript dimension.",
-                    affected_claim_or_component="Assigned functional review dimension",
-                    reasoning=(
-                        "Deterministic output cannot substitute for a substantive "
-                        "expert assessment."
+                    comment=(
+                        "A live specialist must evaluate the assigned manuscript dimension. "
+                        "For example, this deterministic fixture can confirm that the PDF "
+                        "reached the referee call, but it cannot judge whether a forecast "
+                        "comparison supports the paper's claims."
                     ),
                     manuscript_locations=["Complete manuscript"],
                 )
@@ -253,32 +280,24 @@ class MockProvider(Provider):
             ),
             issue_based_synthesis=[
                 SynthesizedIssue(
-                    issue="Substantive specialist review remains necessary",
-                    claim_or_component_affected="Entire manuscript",
-                    what_is_missing=(
-                        "The mock output does not contain a substantive specialist judgment."
-                    ),
-                    why_it_matters=(
-                        "A deterministic workflow fixture cannot establish manuscript quality."
-                    ),
-                    what_needs_to_change=(
-                        "Run the workflow with a capable configured provider."
+                    comment=(
+                        "The entire manuscript still needs substantive specialist review because "
+                        "the mock output checks only the workflow. A deterministic fixture cannot "
+                        "establish manuscript quality, so a real editorial use would require a run "
+                        "with a capable configured provider. The workflow is functioning, but this "
+                        "synthetic comment is not an editorial judgment."
                     ),
                     panel_status=FindingStatus.SPECIALIST,
                     referee_reasoning=[
                         RefereeReasoning(
                             referee_id=first_report.referee_id,
-                            reasoning=first_report.major_comments[0].reasoning,
+                            reasoning=first_report.major_comments[0].comment,
                         )
                     ],
                     validity=ValidityAssessment.SUPPORTED,
                     centrality=Centrality.HIGH,
                     severity=Severity.MAJOR,
                     correctability=Correctability.YES,
-                    adjudication=(
-                        "The workflow is functioning, but this synthetic issue is not an "
-                        "editorial judgment."
-                    ),
                 )
             ],
             consensus_findings=[],
@@ -292,10 +311,6 @@ class MockProvider(Provider):
                 )
             ],
             disagreements_and_adjudications=[],
-            principal_strengths=["All configured workflow stages produced validated artifacts."],
-            decision_determining_issues=["Mock outputs cannot establish manuscript quality."],
-            essential_revisions=["Obtain substantive independent reports before editorial use."],
-            desirable_nonessential_improvements=[],
             final_recommendation=FinalRecommendation.MAJOR_REVISION,
             recommendation_justification=(
                 "The mock recommendation is deterministic test data and must not be "
